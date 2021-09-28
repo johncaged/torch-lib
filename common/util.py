@@ -25,3 +25,16 @@ def func_check(
     def call(func):
         return func_call(func, arg_list, arg_dict)
     return call
+
+
+def dict_merge(dict_1, dict_2):
+    dict_1 = default_value(dict_1, dict, {})
+    dict_2 = default_value(dict_2, dict, {})
+    return dict(dict_1, **dict_2)
+
+
+def default_value(value, type_, default):
+    if value is not None and isinstance(value, type_):
+        return value
+    else:
+        return default

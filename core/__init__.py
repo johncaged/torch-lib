@@ -4,9 +4,11 @@ from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
-from core.map import get_optimizer, get_loss_func
+from core.map import get_optimizer, get_loss_func, get_scheduler
 
 from common.metrics import compute_metrics
+
+from common.util import dict_merge
 
 
 def fit(
@@ -17,11 +19,14 @@ def fit(
         optimizer: Union[str, Optimizer] = 'adam',
         metrics: Optional[list] = None,
         learning_rate: float = 1e-4,
-        learning_rate_decay: float = None,
+        lr_decay: Union[str] = None,
         val_dataset: DataLoader = None,
         loss_options: Optional[dict] = None,
         optimizer_options: Optional[dict] = None,
-        device='cpu'
+        lr_decay_options: Optional[dict] = None,
+        device='cpu',
+        epoch_callbacks: Optional[list] = None,
+        step_callbacks: Optional[list] = None
 ):
     # type check
     assert isinstance(loss_func, (str, Module)), 'loss function type check failed'
@@ -29,12 +34,16 @@ def fit(
     # init loss function
     loss_func = get_loss_func(loss_func, loss_options) if isinstance(loss_func, str) else loss_func
     # init optimizer
-    optimizer_options = optimizer_options if isinstance(optimizer_options, dict) else {}
-    optimizer_options = dict(optimizer_options, **{
+    optimizer_options = dict_merge(optimizer_options, {
         'lr': learning_rate,
         'params': model.parameters()
     })
     optimizer = get_optimizer(optimizer, optimizer_options) if isinstance(optimizer, str) else optimizer
+    # init learning rate decay
+    lr_decay_options = dict_merge(lr_decay_options, {
+        'optimizer': optimizer
+    })
+    scheduler = get_scheduler(lr_decay, lr_decay_options)
     # compute total steps
     total_steps = len(train_dataset)
     # compute avg metrics func
@@ -45,6 +54,7 @@ def fit(
         print('epoch %d' % (i + 1))
         model.train()
 
+        avg_train_metrics = {}
         # batch loop
         for step, (x, y_true) in enumerate(train_dataset):
             # forward propagation
@@ -57,6 +67,9 @@ def fit(
             loss.backward()
             # update grad
             optimizer.step()
+            # lr decay
+            if scheduler is not None:
+                scheduler.step()
             # train metrics
             train_metrics = compute_metrics(y_pred, y_true, metrics)
             # compute average metrics
