@@ -48,60 +48,63 @@ def fit(
     :param step_callbacks: 每一个training step结束的回调函数（还没开发）
     :return:
     """
-    # type check
+    # 参数类型检查
     assert isinstance(loss_func, (str, Module)), 'loss function type check failed'
     assert isinstance(optimizer, (str, Optimizer)), 'optimizer type check failed'
-    # init loss function
+    # 初始化损失函数
     loss_func = get_loss_func(loss_func, loss_options) if isinstance(loss_func, str) else loss_func
-    # init optimizer
+    # 初始化优化器
     optimizer_options = dict_merge(optimizer_options, {
         'lr': learning_rate,
         'params': model.parameters()
     })
     optimizer = get_optimizer(optimizer, optimizer_options) if isinstance(optimizer, str) else optimizer
-    # init learning rate decay
+    # 初始化学习率衰减调度器
     lr_decay_options = dict_merge(lr_decay_options, {
         'optimizer': optimizer
     })
     scheduler = get_scheduler(lr_decay, lr_decay_options) if isinstance(lr_decay, str) or lr_decay is None else lr_decay
-    # compute total steps
+    # 计算总training steps
     total_steps = len(train_dataset)
-    # compute avg metrics func
+    # 返回一个计算平均metrics的函数（用于训练集的训练过程展示）
     avg_metrics, clear_metrics = average_metrics()
 
-    # epoch loop
+    # epoch循环
     for i in range(epochs):
         print('epoch %d' % (i + 1))
+        # 切换到训练模式
         model.train()
 
         avg_train_metrics = {}
-        # batch loop
+        # batch循环
         for step, (x, y_true) in enumerate(train_dataset):
-            # forward propagation
+            # 前向传播
             y_pred = model(x.to(device))
-            # compute loss
+            # 计算损失
             loss = loss_func(y_pred, y_true.to(device))
-            # clear grad
+            # 清除梯度
             optimizer.zero_grad()
-            # backward propagation
+            # 反向传播
             loss.backward()
-            # update grad
+            # 梯度更新
             optimizer.step()
-            # lr decay
+            # 学习率衰减
             if scheduler is not None:
                 scheduler.step()
-            # train metrics
+            # 这个batch计算得到的metrics
             train_metrics = compute_metrics(y_pred, y_true, metrics)
-            # compute average metrics
+            # 计算这个epoch上的平均metrics
             avg_train_metrics = avg_metrics(dict_merge({'loss': loss}, train_metrics), step + 1)
-            # visualize step
+            # 控制台训练过程可视化
             visualize(step + 1, total_steps, avg_train_metrics)
 
+        # 验证集验证
         if val_dataset:
             val_y_pred, val_y_true, val_loss = calculate(model, val_dataset, loss_func, device)
             val_metrics = compute_metrics(val_y_pred, val_y_true, metrics, val=True)
             val_metrics = dict_merge({'val_loss': val_loss}, val_metrics)
             visualize(total_steps, total_steps, dict_merge(avg_train_metrics, val_metrics))
+        # 清除这一epoch的平均metrics，用于计算下一个epoch的平均metrics（如果不清除的话会导致结果累加错误）
         clear_metrics()
         print()
 
@@ -133,11 +136,11 @@ def visualize(step: int, total_steps: int, metrics: Optional[dict] = None, progr
     def format_metric(name: str, item: float):
         return '%s: %f  ' % (name, item)
 
-    # progress of one epoch
+    # 计算当前epoch的进度
     rate = int(step * progress_len / total_steps)
     info = '%d/%d [%s%s] ' % (step, total_steps, '=' * rate, '-' * (progress_len - rate))
 
-    # metrics
+    # 展示评估指标
     if metrics is not None:
         for key, value in metrics.items():
             info += format_metric(key, value)
@@ -185,9 +188,9 @@ def calculate(model: Module, dataset, loss_func, device='cpu'):
     with torch.no_grad():
         for step, (x, y_true) in enumerate(dataset):
             y_true_total += y_true
-            # forward propagation
+            # 前向传播
             y_pred = model(x.to(device))
-            # compute loss
+            # 计算损失
             loss = loss_func(y_pred, y_true.to(device))
             y_pred_total += y_pred
     return y_pred_total, y_true_total, loss
