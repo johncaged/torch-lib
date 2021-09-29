@@ -1,5 +1,6 @@
 from typing import Union, Optional
 
+import torch
 from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
@@ -19,7 +20,7 @@ def fit(
         optimizer: Union[str, Optimizer] = 'adam',
         metrics: Optional[list] = None,
         learning_rate: float = 1e-4,
-        lr_decay: Union[str] = None,
+        lr_decay=None,
         val_dataset: DataLoader = None,
         loss_options: Optional[dict] = None,
         optimizer_options: Optional[dict] = None,
@@ -43,7 +44,7 @@ def fit(
     lr_decay_options = dict_merge(lr_decay_options, {
         'optimizer': optimizer
     })
-    scheduler = get_scheduler(lr_decay, lr_decay_options)
+    scheduler = get_scheduler(lr_decay, lr_decay_options) if isinstance(lr_decay, str) or lr_decay is None else lr_decay
     # compute total steps
     total_steps = len(train_dataset)
     # compute avg metrics func
@@ -73,10 +74,15 @@ def fit(
             # train metrics
             train_metrics = compute_metrics(y_pred, y_true, metrics)
             # compute average metrics
-            avg_train_metrics = avg_metrics(dict({'loss': loss}, **train_metrics), step + 1)
+            avg_train_metrics = avg_metrics(dict_merge({'loss': loss}, train_metrics), step + 1)
             # visualize step
             visualize(step + 1, total_steps, avg_train_metrics)
 
+        if val_dataset:
+            val_y_pred, val_y_true, val_loss = calculate(model, val_dataset, loss_func, device)
+            val_metrics = compute_metrics(val_y_pred, val_y_true, metrics, val=True)
+            val_metrics = dict_merge({'val_loss': val_loss}, val_metrics)
+            visualize(total_steps, total_steps, dict_merge(avg_train_metrics, val_metrics))
         clear_metrics()
         print()
 
@@ -126,5 +132,16 @@ def average_metrics():
     return compute_avg, clear_metrics
 
 
-def calculate():
-    pass
+def calculate(model: Module, dataset, loss_func, device='cpu'):
+    y_true_total = []
+    y_pred_total = []
+    model.eval()
+    with torch.no_grad():
+        for step, (x, y_true) in enumerate(dataset):
+            y_true_total += y_true
+            # forward propagation
+            y_pred = model(x.to(device))
+            # compute loss
+            loss = loss_func(y_pred, y_true.to(device))
+            y_pred_total += y_pred
+    return y_pred_total, y_true_total, loss
