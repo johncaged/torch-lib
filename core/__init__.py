@@ -29,6 +29,25 @@ def fit(
         epoch_callbacks: Optional[list] = None,
         step_callbacks: Optional[list] = None
 ):
+    """
+    最最最核心的训练函数
+    :param model: 训练的模型
+    :param train_dataset: 训练数据集
+    :param epochs: 需要训练多少个epochs
+    :param loss_func: 损失函数，可以自己实例化一个损失函数（Module），也可以传入损失函数的名字（str）
+    :param optimizer: 优化器，可以自己实例化一个优化器（Optimizer），也可以传入优化器的名字（str）
+    :param metrics: 评估指标，一个列表，可以用字符串表示评估指标的名字，也可以传入函数
+    :param learning_rate: 学习率，默认1e-4
+    :param lr_decay: 学习率衰减，同样的，可以传入字符串或者lr_scheduler的实例
+    :param val_dataset: 验证集
+    :param loss_options: 损失函数参数配置，与loss_func搭配使用，为None则使用pytorch的默认配置（仅当loss_func为字符串时生效）
+    :param optimizer_options: 优化器配置，与optimizer搭配使用，为None则使用pytorch的默认配置（仅当optimizer为字符串时生效）
+    :param lr_decay_options: 学习率衰减的配置，与损失函数配置和优化器配置同理
+    :param device: 训练设备，默认cpu，传入cuda值即可使用gpu训练
+    :param epoch_callbacks: 每一个epoch结束的回调函数（还没开发）
+    :param step_callbacks: 每一个training step结束的回调函数（还没开发）
+    :return:
+    """
     # type check
     assert isinstance(loss_func, (str, Module)), 'loss function type check failed'
     assert isinstance(optimizer, (str, Optimizer)), 'optimizer type check failed'
@@ -92,10 +111,25 @@ def evaluate(
         dataset: DataLoader,
         metrics: list
 ):
+    """
+    模型评估
+    :param model: 模型
+    :param dataset: 数据集
+    :param metrics: 评估指标
+    :return: 评估指标的字典（如： { 'loss': 0.123456, 'acc': 0.985612 }）
+    """
     pass
 
 
 def visualize(step: int, total_steps: int, metrics: Optional[dict] = None, progress_len: int = 25):
+    """
+    控制台可视化，像keras一样可视化训练过程，我最喜欢的部分，因为看起来很酷
+    :param step: 当前训练step
+    :param total_steps: 总training steps
+    :param metrics: 评估指标，这里传入评估指标的字典，用于控制台展示
+    :param progress_len: 进度条长度（值为25代表将训练过程分成25个小格展示进度，依此类推，基本可以不用动）
+    :return: None
+    """
     def format_metric(name: str, item: float):
         return '%s: %f  ' % (name, item)
 
@@ -112,6 +146,10 @@ def visualize(step: int, total_steps: int, metrics: Optional[dict] = None, progr
 
 
 def average_metrics():
+    """
+
+    :return:
+    """
     metric_dict = {}
 
     def compute_avg(metrics: Optional[dict], step):
@@ -133,6 +171,14 @@ def average_metrics():
 
 
 def calculate(model: Module, dataset, loss_func, device='cpu'):
+    """
+
+    :param model:
+    :param dataset:
+    :param loss_func:
+    :param device:
+    :return:
+    """
     y_true_total = []
     y_pred_total = []
     model.eval()
