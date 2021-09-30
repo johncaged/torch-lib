@@ -46,7 +46,7 @@ def fit(
     :param device: 训练设备，默认cpu，传入cuda值即可使用gpu训练
     :param epoch_callbacks: 每一个epoch结束的回调函数（还没开发）
     :param step_callbacks: 每一个training step结束的回调函数（还没开发）
-    :return:
+    :return: None
     """
     # 参数类型检查
     assert isinstance(loss_func, (str, Module)), 'loss function type check failed'
@@ -97,6 +97,9 @@ def fit(
             avg_train_metrics = avg_metrics(dict_merge({'loss': loss}, train_metrics), step + 1)
             # 控制台训练过程可视化
             visualize(step + 1, total_steps, avg_train_metrics)
+            if step_callbacks is not None:
+                for callback in step_callbacks:
+                    pass
 
         # 验证集验证
         if val_dataset:
@@ -104,6 +107,9 @@ def fit(
             val_metrics = compute_metrics(val_y_pred, val_y_true, metrics, val=True)
             val_metrics = dict_merge({'val_loss': val_loss}, val_metrics)
             visualize(total_steps, total_steps, dict_merge(avg_train_metrics, val_metrics))
+        if epoch_callbacks is not None:
+            for callback in epoch_callbacks:
+                pass
         # 清除这一epoch的平均metrics，用于计算下一个epoch的平均metrics（如果不清除的话会导致结果累加错误）
         clear_metrics()
         print()
@@ -184,6 +190,7 @@ def calculate(model: Module, dataset, loss_func, device='cpu'):
     """
     y_true_total = []
     y_pred_total = []
+    # 切换到预测模式
     model.eval()
     with torch.no_grad():
         for step, (x, y_true) in enumerate(dataset):
