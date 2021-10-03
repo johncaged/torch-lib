@@ -5,11 +5,11 @@ from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
-from core.map import get_optimizer, get_loss_func, get_scheduler
+from torch_train_tool.core import get_optimizer, get_loss_func, get_scheduler
 
-from common.metrics import compute_metrics
+from torch_train_tool.common.metrics import compute_metrics
 
-from common.util import dict_merge
+from torch_train_tool.common.util import dict_merge
 
 
 def fit(

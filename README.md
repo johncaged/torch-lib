@@ -9,7 +9,7 @@ torch-tool是一个快速搭建pytorch模型训练过程的库，并且可以进
 1.模型训练
 
 ```python
-from core import fit
+from torch_train_tool.core import fit
 from torch.nn import Module
 from torch.utils.data import DataLoader
 
