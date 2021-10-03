@@ -5,7 +5,7 @@ from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
-from torch_train_tool.core import get_optimizer, get_loss_func, get_scheduler
+from torch_train_tool.core.map import get_optimizer, get_loss_func, get_scheduler
 
 from torch_train_tool.common.metrics import compute_metrics
 
