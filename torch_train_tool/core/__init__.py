@@ -200,4 +200,4 @@ def calculate(model: Module, dataset, loss_func, device='cpu'):
             # 计算损失
             loss = loss_func(y_pred, y_true.to(device))
             y_pred_total += y_pred
-    return torch.tensor(y_pred_total), torch.tensor(y_true_total), loss
+    return torch.stack(y_pred_total), torch.stack(y_true_total), loss
