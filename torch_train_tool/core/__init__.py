@@ -54,15 +54,15 @@ def fit(
     # 初始化损失函数
     loss_func = get_loss_func(loss_func, loss_options) if isinstance(loss_func, str) else loss_func
     # 初始化优化器
-    optimizer_options = dict_merge(optimizer_options, {
+    optimizer_options = dict_merge({
         'lr': learning_rate,
         'params': model.parameters()
-    })
+    }, optimizer_options)
     optimizer = get_optimizer(optimizer, optimizer_options) if isinstance(optimizer, str) else optimizer
     # 初始化学习率衰减调度器
-    lr_decay_options = dict_merge(lr_decay_options, {
+    lr_decay_options = dict_merge({
         'optimizer': optimizer
-    })
+    }, lr_decay_options)
     scheduler = get_scheduler(lr_decay, lr_decay_options) if isinstance(lr_decay, str) or lr_decay is None else lr_decay
     # 计算总training steps
     total_steps = len(train_dataset)
