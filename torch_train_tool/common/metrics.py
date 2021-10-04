@@ -42,7 +42,7 @@ def compute_metrics(y_pred, y_true, metrics: Optional[list] = None, val=False):
 
     for metric in metrics:
         if callable(metric):
-            metric_dict['val_' if val else '' + getattr(metric, '__name__')] = metric(y_pred, y_true)
+            metric_dict[('val_' if val else '') + getattr(metric, '__name__')] = metric(y_pred, y_true)
 
         else:
             pass
