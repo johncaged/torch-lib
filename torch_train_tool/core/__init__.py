@@ -98,18 +98,30 @@ def fit(
             # 控制台训练过程可视化
             visualize(step + 1, total_steps, avg_train_metrics)
             if step_callbacks is not None:
+                step_data = {
+                    'metrics': avg_train_metrics,
+                    'step': step + 1,
+                    'total_steps': total_steps
+                }
                 for callback in step_callbacks:
-                    pass
+                    if callable(callback):
+                        callback(step_data)
 
+        epoch_metrics = avg_train_metrics
         # 验证集验证
         if val_dataset:
             val_y_pred, val_y_true, val_loss = calculate(model, val_dataset, loss_func, device)
             val_metrics = compute_metrics(val_y_pred, val_y_true, metrics, val=True)
             val_metrics = dict_merge({'val_loss': val_loss}, val_metrics)
-            visualize(total_steps, total_steps, dict_merge(avg_train_metrics, val_metrics))
+            epoch_metrics = dict_merge(epoch_metrics, val_metrics)
+            visualize(total_steps, total_steps, epoch_metrics)
         if epoch_callbacks is not None:
+            epoch_data = {
+                'metrics': epoch_metrics
+            }
             for callback in epoch_callbacks:
-                pass
+                if callable(callback):
+                    callback(epoch_data)
         # 清除这一epoch的平均metrics，用于计算下一个epoch的平均metrics（如果不清除的话会导致结果累加错误）
         clear_metrics()
         print()
