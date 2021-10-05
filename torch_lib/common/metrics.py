@@ -1,5 +1,6 @@
 from typing import Optional
 from torch_lib.common.util import to_number
+from torch import Tensor
 
 
 def precision(true_positive, false_positive):
@@ -28,7 +29,7 @@ def recall(true_positive, false_negative):
         return true_positive / (true_positive + false_negative)
 
 
-def compute_metrics(y_pred, y_true, metrics: Optional[list] = None, val=False):
+def compute_metrics(y_pred: Tensor, y_true: Tensor, metrics: Optional[list] = None, val=False):
     """
     计算评估指标
     :param y_pred: 模型预测结果
@@ -43,7 +44,7 @@ def compute_metrics(y_pred, y_true, metrics: Optional[list] = None, val=False):
 
     for metric in metrics:
         if callable(metric):
-            metric_dict[('val_' if val else '') + getattr(metric, '__name__')] = to_number(metric(y_pred, y_true))
+            metric_dict[('val_' if val else '') + getattr(metric, '__name__')] = to_number(metric(y_pred.detach(), y_true))
 
         else:
             pass
