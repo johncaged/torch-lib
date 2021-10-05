@@ -93,6 +93,8 @@ def fit(
                 scheduler.step()
             # 这个batch计算得到的metrics
             train_metrics = compute_metrics(y_pred, y_true, metrics)
+            # 释放资源
+            del y_pred, y_true
             # 计算这个epoch上的平均metrics
             avg_train_metrics = avg_metrics(dict_merge({'loss': to_number(loss)}, train_metrics), step + 1)
             # 控制台训练过程可视化
@@ -111,9 +113,7 @@ def fit(
         epoch_metrics = avg_train_metrics
         # 验证集验证
         if val_dataset:
-            val_y_pred, val_y_true, val_loss = calculate(model, val_dataset, loss_func, console_print=False)
-            val_metrics = compute_metrics(val_y_pred, val_y_true, metrics, val=True)
-            val_metrics = dict_merge({'val_loss': to_number(val_loss)}, val_metrics)
+            val_metrics = evaluate(model, val_dataset, metrics, loss_func, console_print=False, val=True)
             epoch_metrics = dict_merge(epoch_metrics, val_metrics)
             visualize(total_steps, total_steps, epoch_metrics)
         if epoch_callbacks is not None:
@@ -136,7 +136,8 @@ def evaluate(
         metrics: list,
         loss_func: Union[str, Module, None] = None,
         loss_options: Optional[dict] = None,
-        console_print: bool = True
+        console_print: bool = True,
+        val: bool = False
 ):
     """
     模型评估
@@ -146,12 +147,16 @@ def evaluate(
     :param loss_func: 损失函数
     :param loss_options: 损失函数配置
     :param console_print: 是否将预测进度展示在控制台
+    :param val: 是否是验证集
     :return: 评估指标的字典（如： { 'loss': 0.123456, 'acc': 0.985612 }）
     """
     # 获取模型所在的设备
     loss_func = get_loss_func(loss_func, loss_options)
     y_pred, y_true, loss = calculate(model=model, dataset=dataset, loss_func=loss_func, console_print=console_print)
-    metrics_result = dict_merge(compute_metrics(y_pred, y_true, metrics), {'loss': loss} if loss_func is not None else {})
+    loss_key = 'val_loss' if val else 'loss'
+    metrics_result = dict_merge(compute_metrics(y_pred, y_true, metrics, val), {loss_key: to_number(loss)} if loss_func is not None else {})
+    # 清除缓存，优化性能
+    del y_pred, y_true
     return metrics_result
 
 
@@ -236,6 +241,8 @@ def calculate(model: Module, dataset, loss_func=None, console_print: bool = True
             # 如果设置了控制台打印输出，则显示当前预测进度
             if console_print:
                 visualize(step + 1, total_steps)
+            # 优化资源
+            del y_pred, y_true
     if console_print:
         print()
     return torch.stack(y_pred_total).to(device), torch.stack(y_true_total).to(device), loss / total_steps
