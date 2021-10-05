@@ -1,4 +1,6 @@
-from typing import Optional
+from typing import Optional, Union
+from torch.nn import Module
+from torch import Tensor
 
 
 def func_call(
@@ -64,3 +66,17 @@ def type_check(value, type_, default):
         return value
     else:
         return default
+
+
+def get_device(obj: Union[Tensor, Module]):
+    """
+    获取对象所在的设备，适用于model、tensor
+    :param obj: tensor或model
+    :return: obj所在的设备
+    """
+    if isinstance(obj, Module):
+        return next(obj.parameters()).device
+    elif isinstance(obj, Tensor):
+        return obj.device
+    else:
+        return None

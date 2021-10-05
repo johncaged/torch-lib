@@ -9,7 +9,7 @@ from torch_train_tool.core.map import get_optimizer, get_loss_func, get_schedule
 
 from torch_train_tool.common.metrics import compute_metrics
 
-from torch_train_tool.common.util import dict_merge
+from torch_train_tool.common.util import dict_merge, get_device
 
 
 def fit(
@@ -50,7 +50,7 @@ def fit(
     assert isinstance(loss_func, (str, Module)), 'loss function type check failed'
     assert isinstance(optimizer, (str, Optimizer)), 'optimizer type check failed'
     # 检查模型所在设备
-    device = model.device
+    device = get_device(model)
     # 初始化损失函数
     loss_func = get_loss_func(loss_func, loss_options)
     # 初始化优化器
@@ -146,7 +146,7 @@ def evaluate(
     # 获取模型所在的设备
     loss_func = get_loss_func(loss_func, loss_options)
     y_pred, y_true, loss = calculate(model=model, dataset=dataset, loss_func=loss_func)
-    metrics_result = compute_metrics(y_pred, y_true, metrics)
+    metrics_result = dict_merge(compute_metrics(y_pred, y_true, metrics), {'loss': loss} if loss_func is not None else {})
     return metrics_result
 
 
@@ -212,7 +212,7 @@ def calculate(model: Module, dataset, loss_func=None):
     # 切换到预测模式
     model.eval()
     # 获取模型所在的设备
-    device = model.device
+    device = get_device(model)
     # 获取模型的steps
     total_steps = len(dataset)
     loss = 0
