@@ -152,12 +152,7 @@ def evaluate(
     """
     # 获取模型所在的设备
     loss_func = get_loss_func(loss_func, loss_options)
-    y_pred, y_true, loss = calculate(model=model, dataset=dataset, loss_func=loss_func, console_print=console_print)
-    loss_key = 'val_loss' if val else 'loss'
-    metrics_result = dict_merge({loss_key: to_number(loss)} if loss_func is not None else {}, compute_metrics(y_pred, y_true, metrics, val))
-    # 清除缓存，优化性能
-    del y_pred, y_true
-    return metrics_result
+    return forward(model, dataset, console_print, metrics, loss_func, val, evaluate_mode=True)
 
 
 def visualize(step: int, total_steps: int, metrics: Optional[dict] = None, progress_len: int = 25):
@@ -169,6 +164,7 @@ def visualize(step: int, total_steps: int, metrics: Optional[dict] = None, progr
     :param progress_len: 进度条长度（值为25代表将训练过程分成25个小格展示进度，依此类推，基本可以不用动）
     :return: None
     """
+
     def format_metric(name: str, item: float):
         return '%s: %f  ' % (name, item)
 
@@ -191,9 +187,9 @@ def average_metrics():
     """
     metric_dict = {}
 
-    def compute_avg(metrics: Optional[dict], step):
+    def compute_avg(metrics: Optional[dict], step: int = -1):
         temp = {}
-        if metrics is None:
+        if metrics is None or step == -1:
             return temp
         for key, value in metrics.items():
             if key in metric_dict.keys():
@@ -209,39 +205,74 @@ def average_metrics():
     return compute_avg, clear_metrics
 
 
-def calculate(model: Module, dataset, loss_func=None, console_print: bool = True):
+def calculate(model: Module, dataset: DataLoader, console_print: bool = True):
     """
 
-    :param model:
-    :param dataset:
-    :param loss_func:
+    :param model: 模型
+    :param dataset: 数据集
     :param console_print: 是否将推断进度显示在控制台
-    :return:
+    :return: 返回结果的预测值和真实值
     """
-    y_true_total = []
-    y_pred_total = []
+    return forward(model, dataset, console_print)
+
+
+def forward(
+        model: Module,
+        dataset: DataLoader,
+        console_print: bool = True,
+        metrics: list = None,
+        loss_func: Optional[Module] = None,
+        val: bool = False,
+        evaluate_mode: bool = False
+):
     # 切换到预测模式
     model.eval()
     # 获取模型所在的设备
     device = get_device(model)
+
+    """
+    evaluate_mode = False
+    """
+    # 用于拼接所有结果
+    y_true_total = []
+    y_pred_total = []
+
+    """
+    evaluate_mode = True
+    """
     # 获取模型的steps
     total_steps = len(dataset)
-    loss = 0
+    # 评估指标平均函数
+    compute_avg, _ = average_metrics()
+    # 评估指标
+    metrics_result = {}
+    loss_key = 'val_loss' if val else 'loss'
+
     if console_print:
         print('predicting...')
     with torch.no_grad():
         for step, (x, y_true) in enumerate(dataset):
-            y_true_total += y_true.to(device)
+            y_true = y_true.to(device)
             # 前向传播
             y_pred = model(x.to(device))
-            if loss_func is not None:
-                # 计算损失
-                loss += loss_func(y_pred, y_true.to(device))
-            y_pred_total += y_pred
+            # 评估模式计算评估指标
+            if evaluate_mode:
+                if loss_func is not None:
+                    # 计算损失
+                    loss = loss_func(y_pred, y_true.to(device))
+                metrics_result = compute_avg(dict_merge({loss_key: to_number(loss)}, compute_metrics(y_pred, y_true, metrics, val)), -1 if (step + 1) < total_steps else total_steps)
+            # 推断模式将结果拼接
+            else:
+                y_true_total += y_true
+                y_pred_total += y_pred
             # 如果设置了控制台打印输出，则显示当前预测进度
             if console_print:
                 visualize(step + 1, total_steps)
             del y_pred, y_true
     if console_print:
         print()
-    return torch.stack(y_pred_total).to(device), torch.stack(y_true_total).to(device), loss / total_steps
+
+    if evaluate_mode:
+        return metrics_result
+    else:
+        return torch.stack(y_pred_total).to(device), torch.stack(y_true_total).to(device)
