@@ -94,7 +94,7 @@ def fit(
             # 这个batch计算得到的metrics
             train_metrics = compute_metrics(y_pred, y_true, metrics)
             # 计算这个epoch上的平均metrics
-            avg_train_metrics = avg_metrics(dict_merge({'loss': loss}, train_metrics), step + 1)
+            avg_train_metrics = avg_metrics(dict_merge({'loss': loss.tolist()}, train_metrics), step + 1)
             # 控制台训练过程可视化
             visualize(step + 1, total_steps, avg_train_metrics)
             if step_callbacks is not None:
