@@ -1,9 +1,9 @@
 from setuptools import setup, find_packages
 
-VERSION = '1.0.0'
+VERSION = '0.0.5'
 
 setup(
-    name='torch_train_tool',
+    name='torch_lib',
     version=VERSION,
     packages=find_packages(),
     include_package_data=False,
