@@ -219,7 +219,8 @@ def calculate(model: Module, dataset, loss_func=None, console_print: bool = True
     # 获取模型的steps
     total_steps = len(dataset)
     loss = 0
-    print('predicting...')
+    if console_print:
+        print('predicting...')
     with torch.no_grad():
         for step, (x, y_true) in enumerate(dataset):
             y_true_total += y_true.to(device)
@@ -232,5 +233,6 @@ def calculate(model: Module, dataset, loss_func=None, console_print: bool = True
             # 如果设置了控制台打印输出，则显示当前预测进度
             if console_print:
                 visualize(step + 1, total_steps)
-    print()
+    if console_print:
+        print()
     return torch.stack(y_pred_total).to(device), torch.stack(y_true_total).to(device), loss / total_steps

@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '1.0.8'
+VERSION = '1.0.0'
 
 setup(
     name='torch_train_tool',
