@@ -119,7 +119,8 @@ def fit(
         if epoch_callbacks is not None:
             epoch_data = {
                 'metrics': epoch_metrics,
-                'model': model
+                'model': model,
+                'epoch': i + 1
             }
             for callback in epoch_callbacks:
                 if callable(callback):
