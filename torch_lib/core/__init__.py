@@ -9,7 +9,7 @@ from torch_lib.core.map import get_optimizer, get_loss_func, get_scheduler
 
 from torch_lib.common.metrics import compute_metrics
 
-from torch_lib.common.util import dict_merge, get_device
+from torch_lib.common.util import dict_merge, get_device, to_number
 
 
 def fit(
@@ -94,7 +94,7 @@ def fit(
             # 这个batch计算得到的metrics
             train_metrics = compute_metrics(y_pred, y_true, metrics)
             # 计算这个epoch上的平均metrics
-            avg_train_metrics = avg_metrics(dict_merge({'loss': loss.tolist()}, train_metrics), step + 1)
+            avg_train_metrics = avg_metrics(dict_merge({'loss': to_number(loss)}, train_metrics), step + 1)
             # 控制台训练过程可视化
             visualize(step + 1, total_steps, avg_train_metrics)
             if step_callbacks is not None:
@@ -113,7 +113,7 @@ def fit(
         if val_dataset:
             val_y_pred, val_y_true, val_loss = calculate(model, val_dataset, loss_func, console_print=False)
             val_metrics = compute_metrics(val_y_pred, val_y_true, metrics, val=True)
-            val_metrics = dict_merge({'val_loss': val_loss}, val_metrics)
+            val_metrics = dict_merge({'val_loss': to_number(val_loss)}, val_metrics)
             epoch_metrics = dict_merge(epoch_metrics, val_metrics)
             visualize(total_steps, total_steps, epoch_metrics)
         if epoch_callbacks is not None:

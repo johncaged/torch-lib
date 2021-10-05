@@ -80,3 +80,10 @@ def get_device(obj: Union[Tensor, Module]):
         return obj.device
     else:
         return None
+
+
+def to_number(number_like):
+    if isinstance(number_like, Tensor):
+        return number_like.tolist()
+    else:
+        return number_like
