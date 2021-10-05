@@ -154,7 +154,7 @@ def evaluate(
     loss_func = get_loss_func(loss_func, loss_options)
     y_pred, y_true, loss = calculate(model=model, dataset=dataset, loss_func=loss_func, console_print=console_print)
     loss_key = 'val_loss' if val else 'loss'
-    metrics_result = dict_merge(compute_metrics(y_pred, y_true, metrics, val), {loss_key: to_number(loss)} if loss_func is not None else {})
+    metrics_result = dict_merge({loss_key: to_number(loss)} if loss_func is not None else {}, compute_metrics(y_pred, y_true, metrics, val))
     # 清除缓存，优化性能
     del y_pred, y_true
     return metrics_result
@@ -241,6 +241,7 @@ def calculate(model: Module, dataset, loss_func=None, console_print: bool = True
             # 如果设置了控制台打印输出，则显示当前预测进度
             if console_print:
                 visualize(step + 1, total_steps)
+            del y_pred, y_true
     if console_print:
         print()
     return torch.stack(y_pred_total).to(device), torch.stack(y_true_total).to(device), loss / total_steps
