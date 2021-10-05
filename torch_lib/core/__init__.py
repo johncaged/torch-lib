@@ -241,8 +241,6 @@ def calculate(model: Module, dataset, loss_func=None, console_print: bool = True
             # 如果设置了控制台打印输出，则显示当前预测进度
             if console_print:
                 visualize(step + 1, total_steps)
-            # 优化资源
-            del y_pred, y_true
     if console_print:
         print()
     return torch.stack(y_pred_total).to(device), torch.stack(y_true_total).to(device), loss / total_steps
