@@ -88,9 +88,6 @@ def fit(
             loss.backward()
             # 梯度更新
             optimizer.step()
-            # 学习率衰减
-            if scheduler is not None:
-                scheduler.step()
             # 这个batch计算得到的metrics
             train_metrics = compute_metrics(y_pred, y_true, metrics)
             # 释放资源
@@ -109,7 +106,9 @@ def fit(
                 for callback in step_callbacks:
                     if callable(callback):
                         callback(step_data)
-
+        # 学习率衰减
+        if scheduler is not None:
+            scheduler.step()
         epoch_metrics = avg_train_metrics
         # 验证集验证
         if val_dataset:
@@ -187,9 +186,9 @@ def average_metrics():
     """
     metric_dict = {}
 
-    def compute_avg(metrics: Optional[dict], step: int = -1):
+    def compute_avg(metrics: Optional[dict], step: int = 1):
         temp = {}
-        if metrics is None or step == -1:
+        if metrics is None:
             return temp
         for key, value in metrics.items():
             if key in metric_dict.keys():
@@ -260,7 +259,7 @@ def forward(
                 if loss_func is not None:
                     # 计算损失
                     loss = loss_func(y_pred, y_true.to(device))
-                metrics_result = compute_avg(dict_merge({loss_key: to_number(loss)}, compute_metrics(y_pred, y_true, metrics, val)), -1 if (step + 1) < total_steps else total_steps)
+                metrics_result = compute_avg(dict_merge({loss_key: to_number(loss)}, compute_metrics(y_pred, y_true, metrics, val)), step + 1)
             # 推断模式将结果拼接
             else:
                 y_true_total += y_true
