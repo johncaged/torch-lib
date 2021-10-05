@@ -101,7 +101,8 @@ def fit(
                 step_data = {
                     'metrics': avg_train_metrics,
                     'step': step + 1,
-                    'total_steps': total_steps
+                    'total_steps': total_steps,
+                    'model': model
                 }
                 for callback in step_callbacks:
                     if callable(callback):
@@ -117,7 +118,8 @@ def fit(
             visualize(total_steps, total_steps, epoch_metrics)
         if epoch_callbacks is not None:
             epoch_data = {
-                'metrics': epoch_metrics
+                'metrics': epoch_metrics,
+                'model': model
             }
             for callback in epoch_callbacks:
                 if callable(callback):
