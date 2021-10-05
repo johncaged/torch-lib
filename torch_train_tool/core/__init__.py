@@ -110,7 +110,7 @@ def fit(
         epoch_metrics = avg_train_metrics
         # 验证集验证
         if val_dataset:
-            val_y_pred, val_y_true, val_loss = calculate(model, val_dataset, loss_func)
+            val_y_pred, val_y_true, val_loss = calculate(model, val_dataset, loss_func, console_print=False)
             val_metrics = compute_metrics(val_y_pred, val_y_true, metrics, val=True)
             val_metrics = dict_merge({'val_loss': val_loss}, val_metrics)
             epoch_metrics = dict_merge(epoch_metrics, val_metrics)
@@ -132,7 +132,8 @@ def evaluate(
         dataset: DataLoader,
         metrics: list,
         loss_func: Union[str, Module, None] = None,
-        loss_options: Optional[dict] = None
+        loss_options: Optional[dict] = None,
+        console_print: bool = True
 ):
     """
     模型评估
@@ -141,11 +142,12 @@ def evaluate(
     :param metrics: 评估指标
     :param loss_func: 损失函数
     :param loss_options: 损失函数配置
+    :param console_print: 是否将预测进度展示在控制台
     :return: 评估指标的字典（如： { 'loss': 0.123456, 'acc': 0.985612 }）
     """
     # 获取模型所在的设备
     loss_func = get_loss_func(loss_func, loss_options)
-    y_pred, y_true, loss = calculate(model=model, dataset=dataset, loss_func=loss_func)
+    y_pred, y_true, loss = calculate(model=model, dataset=dataset, loss_func=loss_func, console_print=console_print)
     metrics_result = dict_merge(compute_metrics(y_pred, y_true, metrics), {'loss': loss} if loss_func is not None else {})
     return metrics_result
 
@@ -199,12 +201,13 @@ def average_metrics():
     return compute_avg, clear_metrics
 
 
-def calculate(model: Module, dataset, loss_func=None):
+def calculate(model: Module, dataset, loss_func=None, console_print: bool = True):
     """
 
     :param model:
     :param dataset:
     :param loss_func:
+    :param console_print: 是否将推断进度显示在控制台
     :return:
     """
     y_true_total = []
@@ -226,6 +229,8 @@ def calculate(model: Module, dataset, loss_func=None):
                 # 计算损失
                 loss += loss_func(y_pred, y_true.to(device))
             y_pred_total += y_pred
-            visualize(step + 1, total_steps)
+            # 如果设置了控制台打印输出，则显示当前预测进度
+            if console_print:
+                visualize(step + 1, total_steps)
     print()
     return torch.stack(y_pred_total).to(device), torch.stack(y_true_total).to(device), loss / total_steps
