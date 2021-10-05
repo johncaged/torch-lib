@@ -25,12 +25,11 @@ def fit(
         loss_options: Optional[dict] = None,
         optimizer_options: Optional[dict] = None,
         lr_decay_options: Optional[dict] = None,
-        device='cpu',
         epoch_callbacks: Optional[list] = None,
         step_callbacks: Optional[list] = None
 ):
     """
-    最最最核心的训练函数
+    最最最核心的训练函数，训练使用的设备由模型所在设备决定:cpu/cuda
     :param model: 训练的模型
     :param train_dataset: 训练数据集
     :param epochs: 需要训练多少个epochs
@@ -43,7 +42,6 @@ def fit(
     :param loss_options: 损失函数参数配置，与loss_func搭配使用，为None则使用pytorch的默认配置（仅当loss_func为字符串时生效）
     :param optimizer_options: 优化器配置，与optimizer搭配使用，为None则使用pytorch的默认配置（仅当optimizer为字符串时生效）
     :param lr_decay_options: 学习率衰减的配置，与损失函数配置和优化器配置同理
-    :param device: 训练设备，默认cpu，传入cuda值即可使用gpu训练
     :param epoch_callbacks: 每一个epoch结束的回调函数（还没开发）
     :param step_callbacks: 每一个training step结束的回调函数（还没开发）
     :return: None
@@ -51,19 +49,21 @@ def fit(
     # 参数类型检查
     assert isinstance(loss_func, (str, Module)), 'loss function type check failed'
     assert isinstance(optimizer, (str, Optimizer)), 'optimizer type check failed'
+    # 检查模型所在设备
+    device = model.device
     # 初始化损失函数
-    loss_func = get_loss_func(loss_func, loss_options) if isinstance(loss_func, str) else loss_func
+    loss_func = get_loss_func(loss_func, loss_options)
     # 初始化优化器
     optimizer_options = dict_merge({
         'lr': learning_rate,
         'params': model.parameters()
     }, optimizer_options)
-    optimizer = get_optimizer(optimizer, optimizer_options) if isinstance(optimizer, str) else optimizer
+    optimizer = get_optimizer(optimizer, optimizer_options)
     # 初始化学习率衰减调度器
     lr_decay_options = dict_merge({
         'optimizer': optimizer
     }, lr_decay_options)
-    scheduler = get_scheduler(lr_decay, lr_decay_options) if isinstance(lr_decay, str) or lr_decay is None else lr_decay
+    scheduler = get_scheduler(lr_decay, lr_decay_options)
     # 计算总training steps
     total_steps = len(train_dataset)
     # 返回一个计算平均metrics的函数（用于训练集的训练过程展示）
@@ -110,7 +110,7 @@ def fit(
         epoch_metrics = avg_train_metrics
         # 验证集验证
         if val_dataset:
-            val_y_pred, val_y_true, val_loss = calculate(model, val_dataset, loss_func, device)
+            val_y_pred, val_y_true, val_loss = calculate(model, val_dataset, loss_func)
             val_metrics = compute_metrics(val_y_pred, val_y_true, metrics, val=True)
             val_metrics = dict_merge({'val_loss': val_loss}, val_metrics)
             epoch_metrics = dict_merge(epoch_metrics, val_metrics)
@@ -130,16 +130,24 @@ def fit(
 def evaluate(
         model: Module,
         dataset: DataLoader,
-        metrics: list
+        metrics: list,
+        loss_func: Union[str, Module, None] = None,
+        loss_options: Optional[dict] = None
 ):
     """
     模型评估
     :param model: 模型
     :param dataset: 数据集
     :param metrics: 评估指标
+    :param loss_func: 损失函数
+    :param loss_options: 损失函数配置
     :return: 评估指标的字典（如： { 'loss': 0.123456, 'acc': 0.985612 }）
     """
-    pass
+    # 获取模型所在的设备
+    loss_func = get_loss_func(loss_func, loss_options)
+    y_pred, y_true, loss = calculate(model=model, dataset=dataset, loss_func=loss_func)
+    metrics_result = compute_metrics(y_pred, y_true, metrics)
+    return metrics_result
 
 
 def visualize(step: int, total_steps: int, metrics: Optional[dict] = None, progress_len: int = 25):
@@ -191,25 +199,33 @@ def average_metrics():
     return compute_avg, clear_metrics
 
 
-def calculate(model: Module, dataset, loss_func, device='cpu'):
+def calculate(model: Module, dataset, loss_func=None):
     """
 
     :param model:
     :param dataset:
     :param loss_func:
-    :param device:
     :return:
     """
     y_true_total = []
     y_pred_total = []
     # 切换到预测模式
     model.eval()
+    # 获取模型所在的设备
+    device = model.device
+    # 获取模型的steps
+    total_steps = len(dataset)
+    loss = 0
+    print('predicting...')
     with torch.no_grad():
         for step, (x, y_true) in enumerate(dataset):
-            y_true_total += y_true
+            y_true_total += y_true.to(device)
             # 前向传播
             y_pred = model(x.to(device))
-            # 计算损失
-            loss = loss_func(y_pred, y_true.to(device))
+            if loss_func is not None:
+                # 计算损失
+                loss += loss_func(y_pred, y_true.to(device))
             y_pred_total += y_pred
-    return torch.stack(y_pred_total), torch.stack(y_true_total), loss
+            visualize(step + 1, total_steps)
+    print()
+    return torch.stack(y_pred_total).to(device), torch.stack(y_true_total).to(device), loss / total_steps
