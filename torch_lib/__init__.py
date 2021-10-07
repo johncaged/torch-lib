@@ -164,14 +164,16 @@ def calculate(model: Module, dataset: DataLoader, console_print: bool = True):
     return _forward(model, dataset, console_print)
 
 
-def data_pack(dataset: Dataset, ratios: Optional[list] = None, generator: Optional[Generator] = None, dataloader_options: Union[dict, list, None] = None):
+def data_pack(dataset: Dataset, ratios: Optional[list] = None, generator: Optional[Generator] = None, options: Union[dict, list, None] = None):
     ratios = [1.0] if ratios is None else ratios
     assert sum(ratios) == 1.0, 'the sum of ratios must equals to one'
-    assert min(ratios) > 0, 'ratios must greater than 0'
+    assert min(ratios) >= 0, 'ratios must be no less than 0'
     assert hasattr(dataset, '__len__') or isinstance(dataset, Sized), 'dataset has no attr: __len__'
 
-    if isinstance(dataloader_options, list):
-        assert len(dataloader_options) == len(ratios), 'dataloader_options must either be a list and be the same size of ratios or be a dict'
+    # 判断dataloader_options是否是list
+    list_options = isinstance(options, list)
+    if list_options:
+        assert len(options) == len(ratios), 'dataloader_options must either be a list and be the same size of ratios or be a dict'
 
     data_len = len(dataset)
     lengths = [int(round(ratio * data_len)) for ratio in ratios]
@@ -182,7 +184,7 @@ def data_pack(dataset: Dataset, ratios: Optional[list] = None, generator: Option
     else:
         split_data = random_split(dataset, lengths, generator)
 
-    return (func_call(DataLoader, [split_data[i]], dataloader_options if isinstance(dataloader_options, dict) else dataloader_options[i]) for i in range(len(ratios)))
+    return (func_call(DataLoader, [split_data[i]], options[i] if list_options else options) for i in range(len(ratios)))
 
 
 def _visualize(step: int, total_steps: int, metrics: Optional[dict] = None, progress_len: int = 25):
