@@ -4,7 +4,7 @@ from torch.optim.lr_scheduler import StepLR, LambdaLR, MultiStepLR, ExponentialL
 
 from typing import Optional, Union
 
-from torch_lib.common.util import func_call
+from torch_lib.utils import func_call
 
 
 def get_loss_func(loss: Union[str, Module, None], loss_options: Optional[dict] = None):

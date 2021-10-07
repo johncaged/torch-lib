@@ -1,5 +1,5 @@
 from typing import Optional, Union
-from torch_lib.common.util import to_number
+from torch_lib.utils import to_number
 from torch import Tensor
 
 
