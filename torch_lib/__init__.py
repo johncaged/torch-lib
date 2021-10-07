@@ -164,7 +164,7 @@ def calculate(model: Module, dataset: DataLoader, console_print: bool = True):
     return _forward(model, dataset, console_print)
 
 
-def data_pack(dataset: Dataset, ratios: Optional[list] = None, generator: Optional[Generator] = None, dataloader_options: Optional[dict, list] = None):
+def data_pack(dataset: Dataset, ratios: Optional[list] = None, generator: Optional[Generator] = None, dataloader_options: Union[dict, list, None] = None):
     ratios = [1.0] if ratios is None else ratios
     assert sum(ratios) == 1.0, 'the sum of ratios must equals to one'
     assert min(ratios) > 0, 'ratios must greater than 0'
