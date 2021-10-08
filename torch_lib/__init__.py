@@ -8,7 +8,8 @@ from torch import Generator
 
 from torch_lib.utils.mapper import get_optimizer, get_loss_func, get_scheduler
 from torch_lib.utils.metrics import compute_metrics
-from torch_lib.utils import dict_merge, get_device, to_number, func_call
+from torch_lib.utils import dict_merge, get_device, to_number, func_call, get_dtype, cast
+from torch_lib.utils.warning import cast_warning
 
 
 def fit(
@@ -50,8 +51,9 @@ def fit(
     assert isinstance(optimizer, (str, Optimizer)), 'optimizer type check failed'
     # 检查模型所在设备
     device = get_device(model)
+    dtype = get_dtype(model)
     # 初始化损失函数
-    loss_func = get_loss_func(loss_func, loss_options)
+    loss_func = cast(get_loss_func(loss_func, loss_options), device, dtype)
     # 初始化优化器
     optimizer_options = dict_merge({
         'lr': learning_rate,
@@ -77,10 +79,15 @@ def fit(
         avg_train_metrics = {}
         # batch循环
         for step, (x, y_true) in enumerate(train_dataset):
+            # 需要类型转换则警告
+            cast_warning.warn(get_dtype(x), dtype)
+            cast_warning.warn(get_dtype(y_true), dtype)
             # 前向传播
-            y_pred = model(x.to(device))
+            y_pred = model(cast(x, device, dtype))
+            # 类型及设备转换
+            y_true = cast(y_true, device, dtype)
             # 计算损失
-            loss = loss_func(y_pred, y_true.to(device))
+            loss = loss_func(y_pred, y_true)
             # 清除梯度
             optimizer.zero_grad()
             # 反向传播
@@ -148,8 +155,10 @@ def evaluate(
     :param val: 是否是验证集
     :return: 评估指标的字典（如： { 'loss': 0.123456, 'acc': 0.985612 }）
     """
-    # 获取模型所在的设备
-    loss_func = get_loss_func(loss_func, loss_options)
+    # 获取模型所在的设备及数据类型
+    device = get_device(model)
+    dtype = get_dtype(model)
+    loss_func = cast(get_loss_func(loss_func, loss_options), device, dtype)
     return _forward(model, dataset, console_print, metrics, loss_func, val, evaluate_mode=True)
 
 
@@ -248,8 +257,9 @@ def _forward(
 ):
     # 切换到预测模式
     model.eval()
-    # 获取模型所在的设备
+    # 获取模型所在的设备及数据类型
     device = get_device(model)
+    dtype = get_dtype(model)
 
     """
     evaluate_mode = False
@@ -273,14 +283,18 @@ def _forward(
         print('predicting...')
     with torch.no_grad():
         for step, (x, y_true) in enumerate(dataset):
-            y_true = y_true.to(device)
+            # 需要类型转换则警告
+            cast_warning.warn(get_dtype(x), dtype)
+            cast_warning.warn(get_dtype(y_true), dtype)
+            # 类型转换
+            y_true = cast(y_true, device, dtype)
             # 前向传播
-            y_pred = model(x.to(device))
+            y_pred = model(cast(x, device, dtype))
             # 评估模式计算评估指标
             if evaluate_mode:
                 if loss_func is not None:
                     # 计算损失
-                    loss = loss_func(y_pred, y_true.to(device))
+                    loss = loss_func(y_pred, y_true)
                 metrics_result = compute_avg(dict_merge({loss_key: to_number(loss)}, compute_metrics(y_pred, y_true, metrics, val)), step + 1)
             # 推断模式将结果拼接
             else:
@@ -296,4 +310,4 @@ def _forward(
     if evaluate_mode:
         return metrics_result
     else:
-        return torch.stack(y_pred_total).to(device), torch.stack(y_true_total).to(device)
+        return cast(torch.stack(y_pred_total), device, dtype), cast(torch.stack(y_true_total), device, dtype)

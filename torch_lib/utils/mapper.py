@@ -7,7 +7,7 @@ from typing import Optional, Union
 from torch_lib.utils import func_call
 
 
-def get_loss_func(loss: Union[str, Module, None], loss_options: Optional[dict] = None):
+def get_loss_func(loss: Union[str, Module, None], loss_options: Optional[dict] = None) -> Optional[Module]:
     """
     损失函数的字符串-实例映射
     :param loss: 损失函数名字，一个字符串

@@ -82,6 +82,37 @@ def get_device(obj: Union[Tensor, Module]):
         return None
 
 
+def get_dtype(obj: Union[Tensor, Module]):
+    """
+    获取对象的数据类型，适用于model、tensor
+    :param obj: tensor或model
+    :return: obj所属的数据类型
+    """
+    if isinstance(obj, Module):
+        return next(obj.parameters()).dtype
+    elif isinstance(obj, Tensor):
+        return obj.dtype
+    else:
+        return None
+
+
+def cast(obj: Union[Tensor, Module, None], device=None, dtype=None) -> Union[Tensor, Module, None]:
+    """
+    数据类型和设备的转换，适用于model、tensor
+    :param obj: tensor或model
+    :param device: 需要转换的设备
+    :param dtype: 需要转换的数据类型
+    :return: 转换后的结果
+    """
+    if obj is None:
+        return obj
+    if device is not None:
+        obj = obj.to(device=device)
+    if dtype is not None:
+        obj = obj.to(dtype=dtype)
+    return obj
+
+
 def to_number(number_like):
     if isinstance(number_like, Tensor):
         return number_like.tolist()
