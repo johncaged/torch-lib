@@ -62,10 +62,7 @@ def type_check(value, type_, default):
     :param default: 如果变量不属于该类型，则传入的默认值
     :return: 属于type_类的值
     """
-    if value is not None and isinstance(value, type_):
-        return value
-    else:
-        return default
+    return value if isinstance(value, type_) else default
 
 
 def get_device(obj: Union[Tensor, Module]):

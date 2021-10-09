@@ -1,4 +1,4 @@
-from typing import Union, Optional, Sized
+from typing import Union, Optional, Sized, Callable
 
 import torch
 from torch.nn import Module
@@ -8,20 +8,20 @@ from torch import Generator
 
 from torch_lib.utils.mapper import get_optimizer, get_loss_func, get_scheduler
 from torch_lib.utils.metrics import compute_metrics
-from torch_lib.utils import dict_merge, get_device, to_number, func_call, get_dtype, cast
+from torch_lib.utils import dict_merge, get_device, to_number, func_call, get_dtype, cast, type_check
 from torch_lib.utils.warning import cast_warning
 
 
 def fit(
         model: Module,
-        train_dataset: DataLoader,
+        train_dataset: Union[DataLoader, Callable],
         epochs: int,
         loss_func: Union[str, Module],
         optimizer: Union[str, Optimizer] = 'adam',
         metrics: Optional[list] = None,
         learning_rate: float = 1e-4,
         lr_decay=None,
-        val_dataset: DataLoader = None,
+        val_dataset: Union[DataLoader, Callable, None] = None,
         loss_options: Optional[dict] = None,
         optimizer_options: Optional[dict] = None,
         lr_decay_options: Optional[dict] = None,
@@ -52,6 +52,9 @@ def fit(
     # 检查模型所在设备
     device = get_device(model)
     dtype = get_dtype(model)
+    # 检查数据集是否是函数类型
+    train_provider = type_check(train_dataset, Callable, None)
+    val_provider = type_check(val_dataset, Callable, None)
     # 初始化损失函数
     loss_func = cast(get_loss_func(loss_func, loss_options), device, dtype)
     # 初始化优化器
@@ -73,6 +76,14 @@ def fit(
     # epoch循环
     for i in range(epochs):
         print('epoch %d' % (i + 1))
+        # 根据epoch动态获取数据集，适用于渐进式学习
+        if train_provider is not None:
+            del train_dataset
+            train_dataset = train_provider(i + 1)
+        if val_provider is not None:
+            del val_dataset
+            val_dataset = val_provider(i + 1)
+
         # 切换到训练模式
         model.train()
 
