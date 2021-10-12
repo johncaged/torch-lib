@@ -34,11 +34,17 @@ class PlainInfo(_Info):
         self.console_print = console_print
 
     def info(self, *args, mode: str = 'p'):
-        assert mode in ['p', 'r'], 'plain info mode not supported'
-        if mode == 'p':
-            print(*args)
-        elif mode == 'r':
-            refresh_output(*args)
+        """
+        输出信息
+        :param args: 输出内容
+        :param mode: 输出模式：'p'--普通打印， 'r'--控制台刷新
+        :return: None
+        """
+        if self.console_print:
+            if mode == 'p':
+                print(*args)
+            elif mode == 'r':
+                refresh_output(*args)
 
 
 device_info = _DeviceInfo()

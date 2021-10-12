@@ -7,7 +7,7 @@ def _warning_output(*args):
     :param args: 待输出的内容
     :return: None
     """
-    print('\033[31m', 'torch_lib warning:', *args, '\033[m')
+    print(*color_format('torch_lib warning:', *args, color='y'))
 
 
 def _info_output(*args):
@@ -16,7 +16,7 @@ def _info_output(*args):
     :param args: 待输出的内容
     :return: None
     """
-    print('torch_lib info:', *args)
+    print(*color_format('torch_lib info:', *args, color='b'))
 
 
 def refresh_output(*args):
@@ -26,6 +26,17 @@ def refresh_output(*args):
     :return: None
     """
     print('\r', *args, end='', flush=True)
+
+
+def color_format(*args, color: str):
+    color_dict = {
+        'r': 31,
+        'g': 32,
+        'y': 33,
+        'b': 34
+    }
+    color_index = color_dict.get(color, 38)
+    return ['\033[%dm' % color_index, *args, '\033[0m']
 
 
 class _Log:

@@ -136,3 +136,12 @@ def time_format(time) -> str:
     m, s = divmod(time, 60)
     h, m = divmod(m, 60)
     return '%d:%02d:%02d' % (h, m, s)
+
+
+def list_to_str(arr: list):
+    """
+    列表转换成字符串
+    :param arr: 列表
+    :return: 字符串
+    """
+    return ''.join(str(i) for i in arr)

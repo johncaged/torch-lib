@@ -9,9 +9,10 @@ from torch import Generator
 
 from torch_lib.utils.mapper import get_optimizer, get_loss_func, get_scheduler
 from torch_lib.utils.metrics import compute_metrics
-from torch_lib.utils import dict_merge, get_device, to_number, func_call, get_dtype, cast, type_check, time_format
+from torch_lib.utils import dict_merge, get_device, to_number, func_call, get_dtype, cast, type_check, time_format, list_to_str
 from torch_lib.log.warning import cast_warning
 from torch_lib.log.info import device_info, PlainInfo
+from torch_lib.log import color_format
 
 
 def fit(
@@ -242,7 +243,7 @@ def _visualize(step: int, total_steps: int, metrics: Optional[dict] = None, step
 
     # 计算ETA
     if step_time is not None:
-        info += 'ETA: %s ' % time_format(step_time * (total_steps - step))
+        info += list_to_str(color_format('ETA: %s ' % time_format(step_time * (total_steps - step)), color='b'))
 
     # 展示评估指标
     if metrics is not None:
@@ -331,7 +332,7 @@ def _forward(
                 if loss_func is not None:
                     # 计算损失
                     loss = loss_func(y_pred, y_true)
-                metrics_result = compute_avg(dict_merge({loss_key: to_number(loss)}, compute_metrics(y_pred, y_true, metrics, val)), step + 1)
+                metrics_result = compute_avg(dict_merge({loss_key: to_number(loss)} if loss_func is not None else {}, compute_metrics(y_pred, y_true, metrics, val)), step + 1)
             # 推断模式将结果拼接
             else:
                 y_true_total += y_true
