@@ -111,7 +111,28 @@ def cast(obj: Union[Tensor, Module, None], device=None, dtype=None) -> Union[Ten
 
 
 def to_number(number_like):
+    """
+    将torch.Tensor类型转换为普通数字
+    :param number_like:
+    :return:
+    """
     if isinstance(number_like, Tensor):
         return number_like.tolist()
     else:
         return number_like
+
+
+def time_format(time) -> str:
+    """
+    时间格式化
+    :param time: 待格式化时间
+    :return: 格式化后的时间
+    """
+    if time < 0:
+        return '--'
+    # 转换为秒
+    time = int(time)
+
+    m, s = divmod(time, 60)
+    h, m = divmod(m, 60)
+    return '%d:%02d:%02d' % (h, m, s)

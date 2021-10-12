@@ -1,4 +1,5 @@
 from typing import Union, Optional, Sized, Callable
+from time import time
 
 import torch
 from torch.nn import Module
@@ -8,8 +9,9 @@ from torch import Generator
 
 from torch_lib.utils.mapper import get_optimizer, get_loss_func, get_scheduler
 from torch_lib.utils.metrics import compute_metrics
-from torch_lib.utils import dict_merge, get_device, to_number, func_call, get_dtype, cast, type_check
-from torch_lib.utils.warning import cast_warning
+from torch_lib.utils import dict_merge, get_device, to_number, func_call, get_dtype, cast, type_check, time_format
+from torch_lib.log.warning import cast_warning
+from torch_lib.log.info import device_info, PlainInfo
 
 
 def fit(
@@ -52,6 +54,10 @@ def fit(
     # 检查模型所在设备
     device = get_device(model)
     dtype = get_dtype(model)
+    # 输出设备日志
+    device_info.info(device)
+    # 控制台输出控制流
+    console = PlainInfo(True)
     # 检查数据集是否是函数类型
     train_provider = type_check(train_dataset, Callable, None)
     val_provider = type_check(val_dataset, Callable, None)
@@ -75,7 +81,7 @@ def fit(
 
     # epoch循环
     for i in range(epochs):
-        print('epoch %d' % (i + 1))
+        console.info('epoch', i + 1)
         # 根据epoch动态获取数据集，适用于渐进式学习
         if train_provider is not None:
             del train_dataset
@@ -90,6 +96,8 @@ def fit(
         avg_train_metrics = {}
         # batch循环
         for step, (x, y_true) in enumerate(train_dataset):
+            # 记录开始时间
+            start_time = time()
             # 需要类型转换则警告
             cast_warning.warn(get_dtype(x), dtype)
             cast_warning.warn(get_dtype(y_true), dtype)
@@ -111,8 +119,7 @@ def fit(
             del y_pred, y_true
             # 计算这个epoch上的平均metrics
             avg_train_metrics = avg_metrics(dict_merge({'loss': to_number(loss)}, train_metrics), step + 1)
-            # 控制台训练过程可视化
-            _visualize(step + 1, total_steps, avg_train_metrics)
+            # 执行step_callbacks回调函数
             if step_callbacks is not None:
                 step_data = {
                     'metrics': avg_train_metrics,
@@ -123,6 +130,12 @@ def fit(
                 for callback in step_callbacks:
                     if callable(callback):
                         callback(step_data)
+
+            # 记录结束时间
+            end_time = time()
+            # 控制台训练过程可视化
+            console.info(_visualize(step + 1, total_steps, avg_train_metrics, end_time - start_time), mode='r')
+
         # 学习率衰减
         if scheduler is not None:
             scheduler.step()
@@ -131,7 +144,7 @@ def fit(
         if val_dataset:
             val_metrics = evaluate(model, val_dataset, metrics, loss_func, console_print=False, val=True)
             epoch_metrics = dict_merge(epoch_metrics, val_metrics)
-            _visualize(total_steps, total_steps, epoch_metrics)
+            console.info(_visualize(total_steps, total_steps, epoch_metrics), mode='r')
         if epoch_callbacks is not None:
             epoch_data = {
                 'metrics': epoch_metrics,
@@ -143,7 +156,7 @@ def fit(
                     callback(epoch_data)
         # 清除这一epoch的平均metrics，用于计算下一个epoch的平均metrics（如果不清除的话会导致结果累加错误）
         clear_metrics()
-        print()
+        console.info()
 
 
 def evaluate(
@@ -169,6 +182,8 @@ def evaluate(
     # 获取模型所在的设备及数据类型
     device = get_device(model)
     dtype = get_dtype(model)
+    # 输出设备日志
+    device_info.info(device)
     loss_func = cast(get_loss_func(loss_func, loss_options), device, dtype)
     return _forward(model, dataset, console_print, metrics, loss_func, val, evaluate_mode=True)
 
@@ -207,14 +222,15 @@ def data_pack(dataset: Dataset, ratios: Optional[list] = None, generator: Option
     return (func_call(DataLoader, [split_data[i]], options[i] if list_options else options) for i in range(len(ratios)))
 
 
-def _visualize(step: int, total_steps: int, metrics: Optional[dict] = None, progress_len: int = 25):
+def _visualize(step: int, total_steps: int, metrics: Optional[dict] = None, step_time: Optional[float] = None, progress_len: int = 25):
     """
     控制台可视化，像keras一样可视化训练过程，我最喜欢的部分，因为看起来很酷
     :param step: 当前训练step
     :param total_steps: 总training steps
     :param metrics: 评估指标，这里传入评估指标的字典，用于控制台展示
+    :param step_time: 进行一个step所消耗的时间，用于计算ETA
     :param progress_len: 进度条长度（值为25代表将训练过程分成25个小格展示进度，依此类推，基本可以不用动）
-    :return: None
+    :return: 用于可视化的格式化字符串
     """
 
     def format_metric(name: str, item: float):
@@ -224,12 +240,16 @@ def _visualize(step: int, total_steps: int, metrics: Optional[dict] = None, prog
     rate = int(step * progress_len / total_steps)
     info = '%d/%d [%s%s] ' % (step, total_steps, '=' * rate, '-' * (progress_len - rate))
 
+    # 计算ETA
+    if step_time is not None:
+        info += 'ETA: %s ' % time_format(step_time * (total_steps - step))
+
     # 展示评估指标
     if metrics is not None:
         for key, value in metrics.items():
             info += format_metric(key, value)
 
-    print('\r%s' % info, end='', flush=True)
+    return info
 
 
 def _average_metrics():
@@ -271,6 +291,10 @@ def _forward(
     # 获取模型所在的设备及数据类型
     device = get_device(model)
     dtype = get_dtype(model)
+    # 输出设备日志
+    device_info.info(device)
+    # 控制台输出流
+    console = PlainInfo(console_print)
 
     """
     evaluate_mode = False
@@ -290,10 +314,11 @@ def _forward(
     metrics_result = {}
     loss_key = 'val_loss' if val else 'loss'
 
-    if console_print:
-        print('predicting...')
+    console.info('predicting...')
     with torch.no_grad():
         for step, (x, y_true) in enumerate(dataset):
+            # 记录开始时间
+            start_time = time()
             # 需要类型转换则警告
             cast_warning.warn(get_dtype(x), dtype)
             cast_warning.warn(get_dtype(y_true), dtype)
@@ -311,12 +336,12 @@ def _forward(
             else:
                 y_true_total += y_true
                 y_pred_total += y_pred
-            # 如果设置了控制台打印输出，则显示当前预测进度
-            if console_print:
-                _visualize(step + 1, total_steps)
             del y_pred, y_true
-    if console_print:
-        print()
+            # 记录结束时间
+            end_time = time()
+            # 如果设置了控制台打印输出，则显示当前预测进度
+            console.info(_visualize(step + 1, total_steps, step_time=end_time - start_time), mode='r')
+    console.info()
 
     if evaluate_mode:
         return metrics_result
