@@ -5,7 +5,7 @@ from torch import Tensor
 
 def func_call(
         func,
-        arg_list: Optional[list] = None,
+        arg_list: Union[list, tuple, None] = None,
         arg_dict: Optional[dict] = None
 ):
     """
@@ -28,7 +28,7 @@ def func_call(
 
 
 def func_check(
-        arg_list: Optional[list] = None,
+        arg_list: Union[list, tuple, None] = None,
         arg_dict: Optional[dict] = None
 ):
     """

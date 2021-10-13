@@ -13,6 +13,7 @@ from torch_lib.utils import dict_merge, get_device, to_number, func_call, get_dt
 from torch_lib.log.warning import cast_warning
 from torch_lib.log.info import device_info, PlainInfo
 from torch_lib.log import color_format
+from torch_lib.callback import execute
 
 
 def fit(
@@ -121,16 +122,13 @@ def fit(
             # 计算这个epoch上的平均metrics
             avg_train_metrics = avg_metrics(dict_merge({'loss': to_number(loss)}, train_metrics), step + 1)
             # 执行step_callbacks回调函数
-            if step_callbacks is not None:
-                step_data = {
-                    'metrics': avg_train_metrics,
-                    'step': step + 1,
-                    'total_steps': total_steps,
-                    'model': model
-                }
-                for callback in step_callbacks:
-                    if callable(callback):
-                        callback(step_data)
+            step_data = {
+                'metrics': avg_train_metrics,
+                'step': step + 1,
+                'total_steps': total_steps,
+                'model': model
+            }
+            execute(step_callbacks, step_data)
 
             # 记录结束时间
             end_time = time()
@@ -146,15 +144,13 @@ def fit(
             val_metrics = evaluate(model, val_dataset, metrics, loss_func, console_print=False, val=True)
             epoch_metrics = dict_merge(epoch_metrics, val_metrics)
             console.info(_visualize(total_steps, total_steps, epoch_metrics), mode='r')
-        if epoch_callbacks is not None:
-            epoch_data = {
-                'metrics': epoch_metrics,
-                'model': model,
-                'epoch': i + 1
-            }
-            for callback in epoch_callbacks:
-                if callable(callback):
-                    callback(epoch_data)
+        # 执行epoch_callbacks回调函数
+        epoch_data = {
+            'metrics': epoch_metrics,
+            'model': model,
+            'epoch': i + 1
+        }
+        execute(epoch_callbacks, epoch_data)
         # 清除这一epoch的平均metrics，用于计算下一个epoch的平均metrics（如果不清除的话会导致结果累加错误）
         clear_metrics()
         console.info()
