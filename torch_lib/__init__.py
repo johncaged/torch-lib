@@ -9,11 +9,10 @@ from torch import Generator
 
 from torch_lib.utils.mapper import get_optimizer, get_loss_func, get_scheduler
 from torch_lib.utils.metrics import compute_metrics
-from torch_lib.utils import dict_merge, get_device, to_number, func_call, get_dtype, cast, type_check, time_format, list_to_str
+from torch_lib.utils import dict_merge, get_device, to_number, func_call, get_dtype, cast, type_check, time_format, list_to_str, execute_batch
 from torch_lib.log.warning import cast_warning
 from torch_lib.log.info import device_info, PlainInfo
 from torch_lib.log import color_format
-from torch_lib.callback import execute
 
 
 def fit(
@@ -128,7 +127,7 @@ def fit(
                 'total_steps': total_steps,
                 'model': model
             }
-            execute(step_callbacks, step_data)
+            execute_batch(step_callbacks, step_data)
 
             # 记录结束时间
             end_time = time()
@@ -150,7 +149,7 @@ def fit(
             'model': model,
             'epoch': i + 1
         }
-        execute(epoch_callbacks, epoch_data)
+        execute_batch(epoch_callbacks, epoch_data)
         # 清除这一epoch的平均metrics，用于计算下一个epoch的平均metrics（如果不清除的话会导致结果累加错误）
         clear_metrics()
         console.info()

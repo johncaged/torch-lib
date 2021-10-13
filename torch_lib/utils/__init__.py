@@ -42,6 +42,23 @@ def func_check(
     return call
 
 
+def execute_batch(callback_list: Optional[list], *args, **kwargs):
+    """
+    批量执行函数列表
+    :param callback_list: 函数列表
+    :param args: 参数
+    :param kwargs: 参数
+    :return: None
+    """
+    if callback_list is None:
+        return
+
+    call = func_check(arg_list=args, arg_dict=kwargs)
+    for callback in callback_list:
+        if callable(callback):
+            call(callback)
+
+
 def dict_merge(dict_1, dict_2):
     """
     字典的合并
