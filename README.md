@@ -1,7 +1,7 @@
-# torch-lib
+# torch_lib
 
 #### 介绍
-torch-lib是一个快速搭建pytorch模型训练过程的库，并且可以进行控制台训练过程可视化（与keras的风格相似）解放双手，值得拥有
+torch_lib是一个快速搭建pytorch模型训练过程的库，并且可以进行控制台训练过程可视化（与keras的风格相似）解放双手，值得拥有
 
 #### 快速上手
 此部分默认您已经熟悉pytorch的模型搭建过程和数据处理过程，若仍不熟悉请阅读pytorch官方文档进行学习
@@ -9,7 +9,7 @@ torch-lib是一个快速搭建pytorch模型训练过程的库，并且可以进�
 1.模型训练
 
 ```python
-from torch_lib.core import fit
+from torch_lib import fit
 from torch.nn import Module
 from torch.utils.data import DataLoader
 
