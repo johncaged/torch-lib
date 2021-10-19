@@ -43,6 +43,8 @@ def compute_metrics(y_pred: Union[Tensor, tuple], y_true: Tensor, metrics: Optio
         return metric_dict
     if isinstance(y_pred, Tensor):
         y_pred = y_pred.detach()
+    if isinstance(y_pred, (tuple, list)):
+        y_pred = ((item.detach() if isinstance(item, Tensor) else item) for item in y_pred)
 
     for metric in metrics:
         if callable(metric):

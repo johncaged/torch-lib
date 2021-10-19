@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from torch_lib.utils import list_to_str
 
 
 def _warning_output(*args):
@@ -19,13 +20,14 @@ def _info_output(*args):
     print(*color_format('torch_lib info:', *args, color='b'))
 
 
-def refresh_output(*args):
+def refresh_output(*args, end=''):
     """
     控制台刷新输出样式
     :param args: 待输出的内容
+    :param end: 打印结束符
     :return: None
     """
-    print('\r', *args, end='', flush=True)
+    print('\r', *args, end=end, flush=True)
 
 
 def color_format(*args, color: str):
@@ -37,6 +39,28 @@ def color_format(*args, color: str):
     }
     color_index = color_dict.get(color, 38)
     return ['\033[%dm' % color_index, *args, '\033[0m']
+
+
+def progress(current_step, total_steps, *args, progress_len: int = 25, output: bool = True, newline: bool = False):
+    """
+
+    :param current_step:
+    :param total_steps:
+    :param args: 其余需要打印的参数
+    :param progress_len: 控制条的长度
+    :param output: 直接打印结果还是返回字符串
+    :param newline: 结束是否换行
+    :return:
+    """
+    assert 0 <= current_step <= total_steps, 'current_step should be between 0 and total_steps'
+    # 计算当前epoch的进度
+    rate = int(current_step * progress_len / total_steps)
+    info = '%d/%d [%s%s] ' % (current_step, total_steps, '=' * rate, '-' * (progress_len - rate))
+    if output:
+        end = '\n' if current_step == total_steps and newline is True else ''
+        refresh_output(info, *args, end=end)
+    else:
+        return info + list_to_str(args)
 
 
 class _Log:

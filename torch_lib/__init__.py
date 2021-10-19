@@ -12,7 +12,7 @@ from torch_lib.utils.metrics import compute_metrics
 from torch_lib.utils import dict_merge, get_device, to_number, func_call, get_dtype, cast, type_check, time_format, list_to_str, execute_batch
 from torch_lib.log.warning import cast_warning
 from torch_lib.log.info import device_info, PlainInfo
-from torch_lib.log import color_format
+from torch_lib.log import color_format, progress
 
 
 def fit(
@@ -232,9 +232,7 @@ def _visualize(step: int, total_steps: int, metrics: Optional[dict] = None, step
     def format_metric(name: str, item: float):
         return '%s: %f  ' % (name, item)
 
-    # 计算当前epoch的进度
-    rate = int(step * progress_len / total_steps)
-    info = '%d/%d [%s%s] ' % (step, total_steps, '=' * rate, '-' * (progress_len - rate))
+    info = ''
 
     # 计算ETA
     if step_time is not None:
@@ -245,7 +243,7 @@ def _visualize(step: int, total_steps: int, metrics: Optional[dict] = None, step
         for key, value in metrics.items():
             info += format_metric(key, value)
 
-    return info
+    return progress(step, total_steps, info, progress_len=progress_len, output=False)
 
 
 def _average_metrics():
