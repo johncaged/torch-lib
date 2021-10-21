@@ -2,7 +2,7 @@ from typing import Optional, Union, List, Callable
 from torch_lib.utils import to_number, cast
 from torch import Tensor
 from torch.nn import Module
-from torch_lib.utils.mapper import get_loss_func
+from torch_lib.utils.loss import get_loss_func
 
 
 def precision(true_positive, false_positive):
@@ -31,25 +31,54 @@ def recall(true_positive, false_negative):
         return true_positive / (true_positive + false_negative)
 
 
-def get_metric(metric, default: str):
+def get_metric(metric: Union[Callable, Module, str], default: str, device=None, dtype=None):
+    """
+    将metric转换为可调用的对象以及其名称
+    :param metric:
+    :param default:
+    :param device:
+    :param dtype:
+    :return:
+    """
     metric_dict = {
 
     }
-    return metric_dict.get(metric, None), default
+    _metric = None
+    _name = ''
+    if isinstance(metric, (Callable, Module)):
+        _name = getattr(metric, '__name__', default)
+        _metric = metric
+    elif isinstance(metric, str):
+        # 损失函数映射优先
+        _metric = get_loss_func(metric)
+        _metric = metric_dict.get(metric, None) if _metric is None else _metric
+        _name = metric
+    elif isinstance(metric, tuple):
+        # 具名metric
+        _metric = get_metric(metric[0], default, device, dtype)[0]
+        _name = metric[1]
+    assert _metric is not None, 'can not find metric or loss function: %d' % str(metric)
+    return cast(_metric, device, dtype), _name
 
 
-def parse_metrics(metrics: List[Union[Callable, Module, str]], device=None, dtype=None):
+def parse_metrics(metrics: List[Union[Callable, Module, str, tuple]], device=None, dtype=None, loss_first: bool = False):
+    """
+    将metrics列表转换为可调用的对象以及其名称
+    :param metrics:
+    :param device:
+    :param dtype:
+    :param loss_first: 列表中的第一个元素是否必须是损失函数（训练时必须）
+    :return:
+    """
     _metrics = []
     for i, metric in enumerate(metrics):
         default = 'metric_%d' % i
-        if isinstance(metric, Callable):
-            _name = getattr(metric, '__name__', default)
-            _metrics.append((metric, _name))
+        if loss_first and i == 0:
+            _metric = get_metric(metric, 'loss', device, dtype)
+            assert isinstance(_metric[0], Module), 'the first metric should be a loss function to optimize in the fit method'
         else:
-            _metric, _name = get_loss_func(metric, default)
-            _metric, _name = get_metric(metric, default) if _metric is None else (_metric, _name)
-            assert _metric is not None, 'metric or loss function %s not found, you can instantiate it manually rather than using a str' % str(metric)
-            _metrics.append((cast(_metric, device, dtype), _name))
+            _metric = get_metric(metric, default, device, dtype)
+        _metrics.append(_metric)
     return _metrics
 
 

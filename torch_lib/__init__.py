@@ -7,7 +7,8 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader, random_split, Dataset
 from torch import Generator
 
-from torch_lib.utils.mapper import get_optimizer, get_scheduler
+from torch_lib.utils.optim import get_optimizer
+from torch_lib.utils.lr_decay import get_scheduler
 from torch_lib.utils.metrics import compute_metrics, parse_metrics
 from torch_lib.utils import dict_merge, get_device, to_number, func_call, get_dtype, cast, type_check, time_format, list_to_str, execute_batch, unpack
 from torch_lib.log.warning import cast_warning
@@ -55,8 +56,8 @@ def fit(
     # 检查数据集是否是函数类型
     train_provider = type_check(train_dataset, Callable, None)
     val_provider = type_check(val_dataset, Callable, None)
-    # 初始化损失函数
-    metrics = parse_metrics(metrics, device, dtype)
+    # 转化metrics，并且确定损失函数
+    metrics = parse_metrics(metrics, device, dtype, loss_first=True)
     loss_func = metrics[0][0]
     # 初始化优化器
     optimizer_options = dict_merge({

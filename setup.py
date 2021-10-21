@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.2.8'
+VERSION = '0.3.0'
 README = 'README.md'
 
 setup(
