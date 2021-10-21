@@ -2,23 +2,24 @@ from torch.nn import MSELoss, BCELoss, KLDivLoss, CrossEntropyLoss, Module
 from torch.optim import Adam, SGD, Optimizer
 from torch.optim.lr_scheduler import StepLR, LambdaLR, MultiStepLR, ExponentialLR, CyclicLR
 
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 
 from torch_lib.utils import func_call
 
 
-def get_loss_func(loss: Union[str, Module, None], loss_options: Optional[dict] = None) -> Optional[Module]:
+def get_loss_func(loss: Union[str, Module, None], default: str = 'loss') -> Union[Tuple[Module, str], Tuple[None, None]]:
     """
-    损失函数的字符串-实例映射
+    损失函数的字符串-实例映射，附带损失函数名字
     :param loss: 损失函数名字，一个字符串
-    :param loss_options: 损失函数的参数（用字典做配置）
+    :param default: 默认函数名
     :return: 实例化的损失函数
     """
     if loss is None:
-        return None
+        return None, None
     # 自己实例化损失函数则返回它本身
     elif isinstance(loss, Module):
-        return loss
+        _name = getattr(loss, '__name__', default)
+        return loss, _name
 
     loss_dict = {
         'mse': MSELoss,
@@ -27,8 +28,7 @@ def get_loss_func(loss: Union[str, Module, None], loss_options: Optional[dict] =
         'ce': CrossEntropyLoss
     }
     loss_func = loss_dict.get(loss, None)
-    assert loss_func is not None, 'loss function not supported'
-    return func_call(loss_func, arg_dict=loss_options)
+    return (func_call(loss_func), str(loss) + '_loss') if loss_func is not None else (None, None)
 
 
 def get_optimizer(optimizer: Union[str, Optimizer, None], optimizer_options: Optional[dict] = None):

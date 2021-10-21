@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 from torch.nn import Module
 from torch import Tensor
 
@@ -110,7 +110,7 @@ def get_dtype(obj: Union[Tensor, Module]):
         return None
 
 
-def cast(obj: Union[Tensor, Module, None], device=None, dtype=None) -> Union[Tensor, Module, None]:
+def cast(obj: Union[Tensor, Module, tuple, list, None], device=None, dtype=None) -> Union[Tuple[Tensor, Module], Tensor, Module, None]:
     """
     数据类型和设备的转换，适用于model、tensor
     :param obj: tensor或model
@@ -118,13 +118,15 @@ def cast(obj: Union[Tensor, Module, None], device=None, dtype=None) -> Union[Ten
     :param dtype: 需要转换的数据类型
     :return: 转换后的结果
     """
-    if obj is None:
+    obj = obj if isinstance(obj, (list, tuple)) else ((obj, ) if isinstance(obj, (Tensor, Module)) else obj)
+    if isinstance(obj, (list, tuple)) is False:
         return obj
     if device is not None:
-        obj = obj.to(device=device)
+        obj = [item.to(device=device) for item in obj]
     if dtype is not None:
-        obj = obj.to(dtype=dtype)
-    return obj
+        obj = [item.to(dtype=dtype) for item in obj]
+    obj = tuple(obj)
+    return obj if len(obj) > 1 else obj[0]
 
 
 def to_number(number_like):
@@ -162,3 +164,21 @@ def list_to_str(arr: Union[list, tuple]):
     :return: 字符串
     """
     return ''.join(str(i) for i in arr)
+
+
+def unpack(data: Union[tuple, list, object], output_len: int):
+    """
+    元组智能拆包
+    :param data: 待拆包元组
+    :param output_len: 输出长度
+    :return: 拆包后的元组（长度为output_len）
+    """
+    data = data if isinstance(data, (tuple, list)) else (data, )
+    data_len = len(data)
+
+    if data_len == output_len:
+        return data if output_len > 1 else data[0]
+    elif data_len > output_len:
+        return data[0:output_len] if output_len > 1 else data[0]
+    else:
+        return tuple([data[i if i < output_len else output_len - 1] for i in range(output_len)])

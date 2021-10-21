@@ -1,6 +1,8 @@
-from typing import Optional, Union
-from torch_lib.utils import to_number
+from typing import Optional, Union, List, Callable
+from torch_lib.utils import to_number, cast
 from torch import Tensor
+from torch.nn import Module
+from torch_lib.utils.mapper import get_loss_func
 
 
 def precision(true_positive, false_positive):
@@ -29,7 +31,29 @@ def recall(true_positive, false_negative):
         return true_positive / (true_positive + false_negative)
 
 
-def compute_metrics(y_pred: Union[Tensor, tuple], y_true: Tensor, metrics: Optional[list] = None, val=False):
+def get_metric(metric, default: str):
+    metric_dict = {
+
+    }
+    return metric_dict.get(metric, None), default
+
+
+def parse_metrics(metrics: List[Union[Callable, Module, str]], device=None, dtype=None):
+    _metrics = []
+    for i, metric in enumerate(metrics):
+        default = 'metric_%d' % i
+        if isinstance(metric, Callable):
+            _name = getattr(metric, '__name__', default)
+            _metrics.append((metric, _name))
+        else:
+            _metric, _name = get_loss_func(metric, default)
+            _metric, _name = get_metric(metric, default) if _metric is None else (_metric, _name)
+            assert _metric is not None, 'metric or loss function %s not found, you can instantiate it manually rather than using a str' % str(metric)
+            _metrics.append((cast(_metric, device, dtype), _name))
+    return _metrics
+
+
+def compute_metrics(y_pred: Union[Tensor, tuple, list], y_true: Union[Tensor, tuple, list], metrics: Optional[list] = None, val=False):
     """
     计算评估指标
     :param y_pred: 模型预测结果
@@ -44,12 +68,9 @@ def compute_metrics(y_pred: Union[Tensor, tuple], y_true: Tensor, metrics: Optio
     if isinstance(y_pred, Tensor):
         y_pred = y_pred.detach()
     if isinstance(y_pred, (tuple, list)):
-        y_pred = ((item.detach() if isinstance(item, Tensor) else item) for item in y_pred)
+        y_pred = tuple([(item.detach() if isinstance(item, Tensor) else item) for item in y_pred])
 
-    for metric in metrics:
-        if callable(metric):
-            metric_dict[('val_' if val else '') + getattr(metric, '__name__')] = to_number(metric(y_pred, y_true))
-
-        else:
-            pass
+    for metric, name in metrics:
+        if callable(metric) or isinstance(metric, Module):
+            metric_dict[('val_' if val else '') + str(name)] = to_number(metric(y_pred, y_true))
     return metric_dict

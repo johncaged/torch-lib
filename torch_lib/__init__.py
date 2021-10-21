@@ -1,4 +1,4 @@
-from typing import Union, Optional, Sized, Callable
+from typing import Union, Optional, Sized, Callable, List
 from time import time
 
 import torch
@@ -7,9 +7,9 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader, random_split, Dataset
 from torch import Generator
 
-from torch_lib.utils.mapper import get_optimizer, get_loss_func, get_scheduler
-from torch_lib.utils.metrics import compute_metrics
-from torch_lib.utils import dict_merge, get_device, to_number, func_call, get_dtype, cast, type_check, time_format, list_to_str, execute_batch
+from torch_lib.utils.mapper import get_optimizer, get_scheduler
+from torch_lib.utils.metrics import compute_metrics, parse_metrics
+from torch_lib.utils import dict_merge, get_device, to_number, func_call, get_dtype, cast, type_check, time_format, list_to_str, execute_batch, unpack
 from torch_lib.log.warning import cast_warning
 from torch_lib.log.info import device_info, PlainInfo
 from torch_lib.log import color_format, progress
@@ -19,13 +19,11 @@ def fit(
         model: Module,
         train_dataset: Union[DataLoader, Callable],
         epochs: int,
-        loss_func: Union[str, Module],
+        metrics: List[Union[str, Module, Callable]],
         optimizer: Union[str, Optimizer] = 'adam',
-        metrics: Optional[list] = None,
         learning_rate: float = 1e-4,
         lr_decay=None,
         val_dataset: Union[DataLoader, Callable, None] = None,
-        loss_options: Optional[dict] = None,
         optimizer_options: Optional[dict] = None,
         lr_decay_options: Optional[dict] = None,
         epoch_callbacks: Optional[list] = None,
@@ -36,22 +34,17 @@ def fit(
     :param model: 训练的模型
     :param train_dataset: 训练数据集
     :param epochs: 需要训练多少个epochs
-    :param loss_func: 损失函数，可以自己实例化一个损失函数（Module），也可以传入损失函数的名字（str）
     :param optimizer: 优化器，可以自己实例化一个优化器（Optimizer），也可以传入优化器的名字（str）
     :param metrics: 评估指标，一个列表，可以用字符串表示评估指标的名字，也可以传入函数
     :param learning_rate: 学习率，默认1e-4
     :param lr_decay: 学习率衰减，同样的，可以传入字符串或者lr_scheduler的实例
     :param val_dataset: 验证集
-    :param loss_options: 损失函数参数配置，与loss_func搭配使用，为None则使用pytorch的默认配置（仅当loss_func为字符串时生效）
     :param optimizer_options: 优化器配置，与optimizer搭配使用，为None则使用pytorch的默认配置（仅当optimizer为字符串时生效）
     :param lr_decay_options: 学习率衰减的配置，与损失函数配置和优化器配置同理
     :param epoch_callbacks: 每一个epoch结束的回调函数（还没开发）
     :param step_callbacks: 每一个training step结束的回调函数（还没开发）
     :return: None
     """
-    # 参数类型检查
-    assert isinstance(loss_func, (str, Module)), 'loss function type check failed'
-    assert isinstance(optimizer, (str, Optimizer)), 'optimizer type check failed'
     # 检查模型所在设备
     device = get_device(model)
     dtype = get_dtype(model)
@@ -63,7 +56,8 @@ def fit(
     train_provider = type_check(train_dataset, Callable, None)
     val_provider = type_check(val_dataset, Callable, None)
     # 初始化损失函数
-    loss_func = cast(get_loss_func(loss_func, loss_options), device, dtype)
+    metrics = parse_metrics(metrics, device, dtype)
+    loss_func = metrics[0][0]
     # 初始化优化器
     optimizer_options = dict_merge({
         'lr': learning_rate,
@@ -96,16 +90,16 @@ def fit(
 
         avg_train_metrics = {}
         # batch循环
-        for step, (x, y_true) in enumerate(train_dataset):
+        for step, data in enumerate(train_dataset):
+            x, y_true = unpack(data, 2)
             # 记录开始时间
             start_time = time()
             # 需要类型转换则警告
             cast_warning.warn(get_dtype(x), dtype)
-            cast_warning.warn(get_dtype(y_true), dtype)
             # 前向传播
             y_pred = model(cast(x, device, dtype))
-            # 类型及设备转换
-            y_true = cast(y_true, device, dtype)
+            # 设备转换
+            y_true = cast(y_true, device)
             # 计算损失
             loss = loss_func(y_pred, y_true)
             # 清除梯度
@@ -119,11 +113,11 @@ def fit(
             # 释放资源
             del y_pred, y_true
             # 计算这个epoch上的平均metrics
-            avg_train_metrics = avg_metrics(dict_merge({'loss': to_number(loss)}, train_metrics), step + 1)
+            avg_train_metrics = avg_metrics(train_metrics, step + 1)
             # 执行step_callbacks回调函数
             step_data = {
                 'metrics': avg_train_metrics,
-                'step': step + 1,
+                'step': step,
                 'total_steps': total_steps,
                 'model': model
             }
@@ -140,14 +134,15 @@ def fit(
         epoch_metrics = avg_train_metrics
         # 验证集验证
         if val_dataset:
-            val_metrics = evaluate(model, val_dataset, metrics, loss_func, console_print=False, val=True)
+            val_metrics = evaluate(model, val_dataset, metrics, console_print=False, val=True)
             epoch_metrics = dict_merge(epoch_metrics, val_metrics)
             console.info(_visualize(total_steps, total_steps, epoch_metrics), mode='r')
         # 执行epoch_callbacks回调函数
         epoch_data = {
             'metrics': epoch_metrics,
             'model': model,
-            'epoch': i + 1
+            'epoch': i,
+            'total_epochs': epochs
         }
         execute_batch(epoch_callbacks, epoch_data)
         # 清除这一epoch的平均metrics，用于计算下一个epoch的平均metrics（如果不清除的话会导致结果累加错误）
@@ -159,8 +154,6 @@ def evaluate(
         model: Module,
         dataset: DataLoader,
         metrics: list,
-        loss_func: Union[str, Module, None] = None,
-        loss_options: Optional[dict] = None,
         console_print: bool = True,
         val: bool = False
 ):
@@ -169,8 +162,6 @@ def evaluate(
     :param model: 模型
     :param dataset: 数据集
     :param metrics: 评估指标
-    :param loss_func: 损失函数
-    :param loss_options: 损失函数配置
     :param console_print: 是否将预测进度展示在控制台
     :param val: 是否是验证集
     :return: 评估指标的字典（如： { 'loss': 0.123456, 'acc': 0.985612 }）
@@ -180,11 +171,11 @@ def evaluate(
     dtype = get_dtype(model)
     # 输出设备日志
     device_info.info(device)
-    loss_func = cast(get_loss_func(loss_func, loss_options), device, dtype)
-    return _forward(model, dataset, console_print, metrics, loss_func, val, evaluate_mode=True)
+    metrics = parse_metrics(metrics, device, dtype)
+    return _forward(model, dataset, 'evaluate', console_print, metrics, val)
 
 
-def calculate(model: Module, dataset: DataLoader, console_print: bool = True):
+def predict(model: Module, dataset: DataLoader, console_print: bool = True):
     """
 
     :param model: 模型
@@ -192,10 +183,26 @@ def calculate(model: Module, dataset: DataLoader, console_print: bool = True):
     :param console_print: 是否将推断进度显示在控制台
     :return: 返回结果的预测值和真实值
     """
-    return _forward(model, dataset, console_print)
+    # 获取模型所在的设备及数据类型
+    device = get_device(model)
+    # 输出设备日志
+    device_info.info(device)
+    return _forward(model, dataset, 'predict', console_print)
 
 
-def data_pack(dataset: Dataset, ratios: Optional[list] = None, generator: Optional[Generator] = None, options: Union[dict, list, None] = None):
+def traverse(model: Module, dataset: DataLoader, callbacks: list, console_print: bool = True):
+    """
+
+    :param model: 模型
+    :param dataset: 数据集
+    :param callbacks: 批量预测过程中的回调函数
+    :param console_print: 是否将推断进度显示在控制台
+    :return: None
+    """
+    return _forward(model, dataset, 'traverse', console_print, callbacks=callbacks)
+
+
+def pack(dataset: Dataset, ratios: Optional[list] = None, generator: Optional[Generator] = None, options: Union[dict, list, None] = None):
     ratios = [1.0] if ratios is None else ratios
     assert sum(ratios) == 1.0, 'the sum of ratios must equals to one'
     assert min(ratios) >= 0, 'ratios must be no less than 0'
@@ -274,11 +281,11 @@ def _average_metrics():
 def _forward(
         model: Module,
         dataset: DataLoader,
+        mode: str,
         console_print: bool = True,
         metrics: list = None,
-        loss_func: Optional[Module] = None,
         val: bool = False,
-        evaluate_mode: bool = False
+        callbacks: Optional[list] = None
 ):
     # 切换到预测模式
     model.eval()
@@ -294,7 +301,6 @@ def _forward(
     evaluate_mode = False
     """
     # 用于拼接所有结果
-    y_true_total = []
     y_pred_total = []
 
     """
@@ -306,30 +312,32 @@ def _forward(
     compute_avg, _ = _average_metrics()
     # 评估指标
     metrics_result = {}
-    loss_key = 'val_loss' if val else 'loss'
 
     console.info('predicting...')
     with torch.no_grad():
-        for step, (x, y_true) in enumerate(dataset):
+        for step, data in enumerate(dataset):
+            x, y_true = unpack(data, 2)
             # 记录开始时间
             start_time = time()
             # 需要类型转换则警告
             cast_warning.warn(get_dtype(x), dtype)
-            cast_warning.warn(get_dtype(y_true), dtype)
-            # 类型转换
-            y_true = cast(y_true, device, dtype)
             # 前向传播
             y_pred = model(cast(x, device, dtype))
+            # 设备转换
+            y_true = cast(y_true, device)
             # 评估模式计算评估指标
-            if evaluate_mode:
-                if loss_func is not None:
-                    # 计算损失
-                    loss = loss_func(y_pred, y_true)
-                metrics_result = compute_avg(dict_merge({loss_key: to_number(loss)} if loss_func is not None else {}, compute_metrics(y_pred, y_true, metrics, val)), step + 1)
+            if mode == 'evaluate':
+                metrics_result = compute_avg(compute_metrics(y_pred, y_true, metrics, val), step + 1)
             # 推断模式将结果拼接
-            else:
-                y_true_total += y_true
+            elif mode == 'predict':
                 y_pred_total += y_pred
+            elif mode == 'traverse':
+                step_data = {
+                    'step': step,
+                    'y_pred': y_pred,
+                    'y_true': y_true
+                }
+                execute_batch(callbacks, step_data)
             del y_pred, y_true
             # 记录结束时间
             end_time = time()
@@ -337,7 +345,7 @@ def _forward(
             console.info(_visualize(step + 1, total_steps, step_time=end_time - start_time), mode='r')
     console.info()
 
-    if evaluate_mode:
+    if mode == 'evaluate':
         return metrics_result
-    else:
-        return cast(torch.stack(y_pred_total), device, dtype), cast(torch.stack(y_true_total), device, dtype)
+    elif mode == 'predict':
+        return cast(torch.stack(y_pred_total), device, dtype)
