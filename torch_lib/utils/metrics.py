@@ -61,7 +61,7 @@ def get_metric(metric: Union[Callable, Module, str], default: str, device=None, 
     return cast(_metric, device, dtype), _name
 
 
-def parse_metrics(metrics: List[Union[Callable, Module, str, tuple]], device=None, dtype=None, loss_first: bool = False):
+def parse_metrics(metrics: Union[List[Union[Callable, Module, str, tuple]], None], device=None, dtype=None, loss_first: bool = False):
     """
     将metrics列表转换为可调用的对象以及其名称
     :param metrics:
@@ -70,6 +70,9 @@ def parse_metrics(metrics: List[Union[Callable, Module, str, tuple]], device=Non
     :param loss_first: 列表中的第一个元素是否必须是损失函数（训练时必须）
     :return:
     """
+    if metrics is None:
+        return None
+
     _metrics = []
     for i, metric in enumerate(metrics):
         default = 'metric_%d' % i

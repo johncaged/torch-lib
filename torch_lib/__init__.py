@@ -191,16 +191,22 @@ def predict(model: Module, dataset: DataLoader, console_print: bool = True):
     return _forward(model, dataset, 'predict', console_print)
 
 
-def traverse(model: Module, dataset: DataLoader, callbacks: list, console_print: bool = True):
+def traverse(model: Module, dataset: DataLoader, callbacks: list, metrics: Optional[list] = None, console_print: bool = True, val: bool = False):
     """
 
     :param model: 模型
     :param dataset: 数据集
     :param callbacks: 批量预测过程中的回调函数
+    :param metrics: 遍历时计算评估指标
     :param console_print: 是否将推断进度显示在控制台
+    :param val: 是否是验证集
     :return: None
     """
-    return _forward(model, dataset, 'traverse', console_print, callbacks=callbacks)
+    # 获取模型所在的设备及数据类型
+    device = get_device(model)
+    dtype = get_dtype(model)
+    metrics = parse_metrics(metrics, device, dtype)
+    return _forward(model, dataset, 'traverse', console_print, metrics=metrics, callbacks=callbacks, val=val)
 
 
 def pack(dataset: Dataset, ratios: Optional[list] = None, generator: Optional[Generator] = None, options: Union[dict, list, None] = None):
@@ -333,10 +339,12 @@ def _forward(
             elif mode == 'predict':
                 y_pred_total += y_pred
             elif mode == 'traverse':
+                _metrics = compute_metrics(y_pred, y_true, metrics, val)
                 step_data = {
                     'step': step,
                     'y_pred': y_pred,
-                    'y_true': y_true
+                    'y_true': y_true,
+                    'metrics': _metrics
                 }
                 execute_batch(callbacks, step_data)
             del y_pred, y_true
