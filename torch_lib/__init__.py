@@ -245,7 +245,7 @@ def pack(dataset: Dataset, ratios: Optional[list] = None, random: bool = True, g
     else:
         split_data = random_split(dataset, lengths, generator)
 
-    return (func_call(DataLoader, [split_data[i]], options[i] if list_options else options) for i in range(len(ratios)))
+    return tuple((func_call(DataLoader, [split_data[i]], options[i] if list_options else options) for i in range(len(ratios))))
 
 
 def _visualize(step: int, total_steps: int, metrics: Optional[dict] = None, step_time: Optional[float] = None, progress_len: int = 25):
@@ -264,16 +264,12 @@ def _visualize(step: int, total_steps: int, metrics: Optional[dict] = None, step
 
     info = ''
 
-    # 计算ETA
-    if step_time is not None:
-        info += list_to_str(color_format('ETA: %s ' % time_format(step_time * (total_steps - step)), color='b'))
-
     # 展示评估指标
     if metrics is not None:
         for key, value in metrics.items():
             info += format_metric(key, value)
 
-    return progress(step, total_steps, info, progress_len=progress_len, output=False)
+    return progress(step, total_steps, info, step_time=step_time, progress_len=progress_len, output=False)
 
 
 def _average_metrics():

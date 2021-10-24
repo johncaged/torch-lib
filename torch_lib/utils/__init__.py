@@ -157,10 +157,11 @@ def time_format(time) -> str:
     return '%d:%02d:%02d' % (h, m, s)
 
 
-def list_to_str(arr: Union[list, tuple]):
+def list_to_str(arr: Union[list, tuple], sep=''):
     """
     列表转换成字符串
     :param arr: 列表
+    :param sep: 分隔符
     :return: 字符串
     """
     return ''.join(str(i) for i in arr)
