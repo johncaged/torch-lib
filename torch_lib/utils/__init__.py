@@ -141,7 +141,7 @@ def to_number(number_like):
         return number_like
 
 
-def time_format(time) -> str:
+def time_format(time: float) -> str:
     """
     时间格式化
     :param time: 待格式化时间
@@ -164,7 +164,7 @@ def list_to_str(arr: Union[list, tuple], sep=''):
     :param sep: 分隔符
     :return: 字符串
     """
-    return ''.join(str(i) for i in arr)
+    return sep.join(str(i) for i in arr)
 
 
 def unpack(data: Union[tuple, list, object], output_len: int):
@@ -182,4 +182,4 @@ def unpack(data: Union[tuple, list, object], output_len: int):
     elif data_len > output_len:
         return data[0:output_len] if output_len > 1 else data[0]
     else:
-        return tuple([data[i if i < output_len else output_len - 1] for i in range(output_len)])
+        return tuple([data[i if i < data_len else data_len - 1] for i in range(output_len)])

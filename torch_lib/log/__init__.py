@@ -43,7 +43,7 @@ def color_format(*args, color: str):
     return ['\033[%dm' % color_index, *args, '\033[0m']
 
 
-def progress(current_step, total_steps, *args, step_time: Optional[int] = None, progress_len: int = 25, output: bool = True, newline: bool = False):
+def progress(current_step, total_steps, *args, step_time: Optional[float] = None, progress_len: int = 25, output: bool = True, newline: bool = False):
     """
 
     :param current_step:
@@ -67,6 +67,18 @@ def progress(current_step, total_steps, *args, step_time: Optional[int] = None, 
         refresh_output(info, *args, end=end)
     else:
         return info + list_to_str(args)
+
+
+class Progress:
+
+    def __init__(self, obj):
+        pass
+
+    def __iter__(self):
+        pass
+
+    def __next__(self):
+        pass
 
 
 class _Log:
