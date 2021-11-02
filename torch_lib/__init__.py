@@ -10,10 +10,12 @@ from torch import Generator
 from torch_lib.utils.optim import get_optimizer
 from torch_lib.utils.lr_decay import get_scheduler
 from torch_lib.utils.metrics import compute_metrics, parse_metrics
-from torch_lib.utils import dict_merge, get_device, to_number, func_call, get_dtype, cast, type_check, time_format, list_to_str, execute_batch, unpack
+from torch_lib.utils import dict_merge, get_device, to_number, func_call, get_dtype, cast, type_check, time_format, list_to_str, unpack
 from torch_lib.log.warning import cast_warning
 from torch_lib.log.info import device_info, PlainInfo
 from torch_lib.log import color_format, progress
+from torch_lib.callback import Callback, CallbackExecutor
+from torch_lib.callback.context import BeginContext, EndContext, StepBeginContext, StepEndContext, EpochBeginContext, EpochEndContext
 
 
 def fit(
@@ -27,8 +29,7 @@ def fit(
         val_dataset: Union[DataLoader, Callable, None] = None,
         optimizer_options: Optional[dict] = None,
         lr_decay_options: Optional[dict] = None,
-        epoch_callbacks: Optional[list] = None,
-        step_callbacks: Optional[list] = None
+        callbacks: Union[Callback, List[Callback]] = None
 ):
     """
     最最最核心的训练函数，训练使用的设备由模型所在设备决定:cpu/cuda
@@ -42,8 +43,7 @@ def fit(
     :param val_dataset: 验证集
     :param optimizer_options: 优化器配置，与optimizer搭配使用，为None则使用pytorch的默认配置（仅当optimizer为字符串时生效）
     :param lr_decay_options: 学习率衰减的配置，与损失函数配置和优化器配置同理
-    :param epoch_callbacks: 每一个epoch结束的回调函数（还没开发）
-    :param step_callbacks: 每一个training step结束的回调函数（还没开发）
+    :param callbacks: 回调函数插件
     :return: None
     """
     # 检查模型所在设备
@@ -74,6 +74,8 @@ def fit(
     total_steps = len(train_dataset)
     # 返回一个计算平均metrics的函数（用于训练集的训练过程展示）
     avg_metrics, clear_metrics = _average_metrics()
+    # 将callbacks汇总
+    callback_exec = CallbackExecutor(callbacks)
 
     # epoch循环
     for i in range(epochs):
@@ -116,13 +118,12 @@ def fit(
             # 计算这个epoch上的平均metrics
             avg_train_metrics = avg_metrics(train_metrics, step + 1)
             # 执行step_callbacks回调函数
-            step_data = {
-                'metrics': avg_train_metrics,
-                'step': step,
-                'total_steps': total_steps,
-                'model': model
-            }
-            execute_batch(step_callbacks, step_data)
+            callback_exec.step_end(StepEndContext(
+                metrics=avg_train_metrics,
+                step=step,
+                total_steps=total_steps,
+                model=model
+            ))
 
             # 记录结束时间
             end_time = time()
@@ -139,13 +140,12 @@ def fit(
             epoch_metrics = dict_merge(epoch_metrics, val_metrics)
             console.info(_visualize(total_steps, total_steps, epoch_metrics), mode='r')
         # 执行epoch_callbacks回调函数
-        epoch_data = {
-            'metrics': epoch_metrics,
-            'model': model,
-            'epoch': i,
-            'total_epochs': epochs
-        }
-        execute_batch(epoch_callbacks, epoch_data)
+        callback_exec.epoch_end(EpochEndContext(
+            metrics=epoch_metrics,
+            total_epochs=epochs,
+            epoch=i,
+            model=model
+        ))
         # 清除这一epoch的平均metrics，用于计算下一个epoch的平均metrics（如果不清除的话会导致结果累加错误）
         clear_metrics()
         console.info()
@@ -191,7 +191,7 @@ def predict(model: Module, dataset: DataLoader, console_print: bool = True):
     return _forward(model, dataset, 'predict', console_print)
 
 
-def traverse(model: Module, dataset: DataLoader, callbacks: list, metrics: Optional[list] = None, console_print: bool = True, val: bool = False):
+def traverse(model: Module, dataset: DataLoader, callbacks: Union[Callback, List[Callback]], metrics: Optional[list] = None, console_print: bool = True, val: bool = False):
     """
 
     :param model: 模型
@@ -304,7 +304,7 @@ def _forward(
         console_print: bool = True,
         metrics: list = None,
         val: bool = False,
-        callbacks: Optional[list] = None
+        callbacks: Union[Callback, List[Callback], None] = None
 ):
     # 切换到预测模式
     model.eval()
@@ -331,6 +331,7 @@ def _forward(
     compute_avg, _ = _average_metrics()
     # 评估指标
     metrics_result = {}
+    callback_exec = CallbackExecutor(callbacks)
 
     console.info('predicting...')
     with torch.no_grad():
@@ -352,13 +353,12 @@ def _forward(
                 y_pred_total += y_pred
             elif mode == 'traverse':
                 _metrics = compute_metrics(y_pred, y_true, metrics, val)
-                step_data = {
-                    'step': step,
-                    'y_pred': y_pred,
-                    'y_true': y_true,
-                    'metrics': _metrics
-                }
-                execute_batch(callbacks, step_data)
+                callback_exec.step_end(StepEndContext(
+                    step=step,
+                    y_pred=y_pred,
+                    y_true=y_true,
+                    metrics=_metrics
+                ))
             del y_pred, y_true
             # 记录结束时间
             end_time = time()

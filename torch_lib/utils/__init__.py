@@ -183,3 +183,18 @@ def unpack(data: Union[tuple, list, object], output_len: int):
         return data[0:output_len] if output_len > 1 else data[0]
     else:
         return tuple([data[i if i < data_len else data_len - 1] for i in range(output_len)])
+
+
+def build_from_dict(self, kwargs: dict, required_params: Union[list, tuple, set, None] = None):
+    """
+    通过字典构建对象的参数
+    :param self:
+    :param kwargs:
+    :param required_params:
+    :return:
+    """
+    if required_params is None:
+        required_params = set()
+    assert set(kwargs.keys()) >= set(required_params), 'class init params missing'
+    for key in kwargs:
+        setattr(self, key, kwargs[key])
