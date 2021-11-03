@@ -1,6 +1,6 @@
 from abc import abstractmethod
-from torch_lib.utils import list_to_str
-from typing import Optional
+from torch_lib.utils import list_to_str, TimeRecord
+from typing import Union
 from torch_lib.utils import time_format
 
 
@@ -43,7 +43,7 @@ def color_format(*args, color: str):
     return ['\033[%dm' % color_index, *args, '\033[0m']
 
 
-def progress(current_step, total_steps, *args, step_time: Optional[float] = None, progress_len: int = 25, output: bool = True, newline: bool = False):
+def progress(current_step, total_steps, *args, step_time: Union[float, TimeRecord, None] = None, progress_len: int = 25, output: bool = True, newline: bool = False):
     """
 
     :param current_step:
@@ -61,6 +61,7 @@ def progress(current_step, total_steps, *args, step_time: Optional[float] = None
     info = '%d/%d [%s%s] ' % (current_step, total_steps, '=' * rate, '-' * (progress_len - rate))
     # 计算ETA
     if step_time is not None:
+        step_time = float(step_time)
         info += list_to_str(color_format('ETA: %s ' % time_format(step_time * (total_steps - current_step)), color='b'))
     if output:
         end = '\n' if current_step == total_steps and newline is True else ''

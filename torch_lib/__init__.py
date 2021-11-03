@@ -1,49 +1,51 @@
-from typing import Union, Optional, Sized, Callable, List
-from time import time
+from typing import Union, Optional, Callable, List
 
 import torch
 from torch.nn import Module
 from torch.optim import Optimizer
-from torch.utils.data import DataLoader, random_split, Dataset, Subset
-from torch import Generator
+from torch.utils.data import DataLoader
 
 from torch_lib.utils.optim import get_optimizer
 from torch_lib.utils.lr_decay import get_scheduler
 from torch_lib.utils.metrics import compute_metrics, parse_metrics
-from torch_lib.utils import dict_merge, get_device, to_number, func_call, get_dtype, cast, type_check, time_format, list_to_str, unpack
+from torch_lib.utils import dict_merge, get_device, to_number, func_call, get_dtype, cast, type_check, time_format, list_to_str, unpack, TimeRecord
 from torch_lib.log.warning import cast_warning
 from torch_lib.log.info import device_info, PlainInfo
 from torch_lib.log import color_format, progress
 from torch_lib.callback import Callback, CallbackExecutor
 from torch_lib.callback.context import BeginContext, EndContext, StepBeginContext, StepEndContext, EpochBeginContext, EpochEndContext
+from torch_lib.data import DataProvider, ConstantDataProvider
+from torch_lib.data.context import DataProviderContext
 
 
 def fit(
         model: Module,
-        train_dataset: Union[DataLoader, Callable],
-        epochs: int,
+        train_dataset: Union[DataLoader, DataProvider],
         metrics: List[Union[str, Module, Callable]],
+        epochs: int = 1,
         optimizer: Union[str, Optimizer] = 'adam',
         learning_rate: float = 1e-4,
         lr_decay=None,
-        val_dataset: Union[DataLoader, Callable, None] = None,
+        val_dataset: Union[DataLoader, DataProvider, None] = None,
         optimizer_options: Optional[dict] = None,
         lr_decay_options: Optional[dict] = None,
-        callbacks: Union[Callback, List[Callback]] = None
+        callbacks: Union[Callback, List[Callback]] = None,
+        console_print: bool = True
 ):
     """
     最最最核心的训练函数，训练使用的设备由模型所在设备决定:cpu/cuda
     :param model: 训练的模型
     :param train_dataset: 训练数据集
+    :param metrics: 评估指标，一个列表，可以用字符串表示评估指标的名字，也可以传入函数
     :param epochs: 需要训练多少个epochs
     :param optimizer: 优化器，可以自己实例化一个优化器（Optimizer），也可以传入优化器的名字（str）
-    :param metrics: 评估指标，一个列表，可以用字符串表示评估指标的名字，也可以传入函数
     :param learning_rate: 学习率，默认1e-4
     :param lr_decay: 学习率衰减，同样的，可以传入字符串或者lr_scheduler的实例
     :param val_dataset: 验证集
     :param optimizer_options: 优化器配置，与optimizer搭配使用，为None则使用pytorch的默认配置（仅当optimizer为字符串时生效）
     :param lr_decay_options: 学习率衰减的配置，与损失函数配置和优化器配置同理
     :param callbacks: 回调函数插件
+    :param console_print: 是否控制台可视化
     :return: None
     """
     # 检查模型所在设备
@@ -52,10 +54,10 @@ def fit(
     # 输出设备日志
     device_info.info(device)
     # 控制台输出控制流
-    console = PlainInfo(True)
+    console = PlainInfo(console_print)
     # 检查数据集是否是函数类型
-    train_provider = type_check(train_dataset, Callable, None)
-    val_provider = type_check(val_dataset, Callable, None)
+    train_provider = type_check(train_dataset, DataProvider, ConstantDataProvider(train_dataset))
+    val_provider = type_check(val_dataset, DataProvider, ConstantDataProvider(val_dataset))
     # 转化metrics，并且确定损失函数
     metrics = parse_metrics(metrics, device, dtype, loss_first=True)
     loss_func = metrics[0][0]
@@ -76,59 +78,60 @@ def fit(
     avg_metrics, clear_metrics = _average_metrics()
     # 将callbacks汇总
     callback_exec = CallbackExecutor(callbacks)
+    # 计时器
+    time_record = TimeRecord()
 
     # epoch循环
     for i in range(epochs):
         console.info('epoch', i + 1)
         # 根据epoch动态获取数据集，适用于渐进式学习
-        if train_provider is not None:
-            del train_dataset
-            train_dataset = train_provider(i + 1)
-        if val_provider is not None:
-            del val_dataset
-            val_dataset = val_provider(i + 1)
+        del train_dataset
+        del val_dataset
+        train_dataset = train_provider.get(DataProviderContext(
+            epoch=i
+        ))
+        val_dataset = val_provider.get(DataProviderContext(
+            epoch=i
+        ))
 
         # 切换到训练模式
         model.train()
 
         avg_train_metrics = {}
         # batch循环
-        for step, data in enumerate(train_dataset):
-            x, y_true = unpack(data, 2)
-            # 记录开始时间
-            start_time = time()
-            # 需要类型转换则警告
-            cast_warning.warn(get_dtype(x), dtype)
-            # 前向传播
-            y_pred = model(cast(x, device, dtype))
-            # 设备转换
-            y_true = cast(y_true, device)
-            # 计算损失
-            loss = loss_func(y_pred, y_true)
-            # 清除梯度
-            optimizer.zero_grad()
-            # 反向传播
-            loss.backward()
-            # 梯度更新
-            optimizer.step()
-            # 这个batch计算得到的metrics
-            train_metrics = compute_metrics(y_pred, y_true, metrics)
-            # 释放资源
-            del y_pred, y_true
-            # 计算这个epoch上的平均metrics
-            avg_train_metrics = avg_metrics(train_metrics, step + 1)
-            # 执行step_callbacks回调函数
-            callback_exec.step_end(StepEndContext(
-                metrics=avg_train_metrics,
-                step=step,
-                total_steps=total_steps,
-                model=model
-            ))
-
-            # 记录结束时间
-            end_time = time()
+        for step, temp in enumerate(train_dataset):
+            # 记录运行时间
+            with time_record:
+                x, y_true = unpack(temp, 2)
+                # 需要类型转换则警告
+                cast_warning.warn(get_dtype(x), dtype)
+                # 前向传播
+                y_pred = model(cast(x, device, dtype))
+                # 设备转换
+                y_true = cast(y_true, device)
+                # 计算损失
+                loss = loss_func(y_pred, y_true)
+                # 清除梯度
+                optimizer.zero_grad()
+                # 反向传播
+                loss.backward()
+                # 梯度更新
+                optimizer.step()
+                # 这个batch计算得到的metrics
+                train_metrics = compute_metrics(y_pred, y_true, metrics)
+                # 计算这个epoch上的平均metrics
+                avg_train_metrics = avg_metrics(train_metrics, step + 1)
+                # 执行step_callbacks回调函数
+                callback_exec.step_end(StepEndContext(
+                    metrics=avg_train_metrics,
+                    step=step,
+                    total_steps=total_steps,
+                    model=model
+                ))
+                # 释放资源
+                del y_pred, y_true
             # 控制台训练过程可视化
-            console.info(_visualize(step + 1, total_steps, avg_train_metrics, end_time - start_time), mode='r')
+            console.info(_visualize(step + 1, total_steps, avg_train_metrics, time_record), mode='r')
 
         # 学习率衰减
         if scheduler is not None:
@@ -209,46 +212,7 @@ def traverse(model: Module, dataset: DataLoader, callbacks: Union[Callback, List
     return _forward(model, dataset, 'traverse', console_print, metrics=metrics, callbacks=callbacks, val=val)
 
 
-def pack(dataset: Dataset, ratios: Optional[list] = None, random: bool = True, generator: Optional[Generator] = None, options: Union[dict, list, None] = None):
-    """
-    数据集分割以及打包成DataLoader
-    :param dataset: 数据集
-    :param ratios: 分割比例
-    :param random: 随机分割还是顺序分割
-    :param generator: 随机分割的种子
-    :param options: DataLoader选项
-    :return:
-    """
-    ratios = [1.0] if ratios is None else ratios
-    assert sum(ratios) == 1.0, 'the sum of ratios must equals to one'
-    assert min(ratios) >= 0, 'ratios must be no less than 0'
-    assert hasattr(dataset, '__len__') or isinstance(dataset, Sized), 'dataset has no attr: __len__'
-
-    # 判断dataloader_options是否是list
-    list_options = isinstance(options, list)
-    if list_options:
-        assert len(options) == len(ratios), 'dataloader_options must either be a list and be the same size of ratios or be a dict'
-
-    data_len = len(dataset)
-    lengths = [int(round(ratio * data_len)) for ratio in ratios]
-    lengths[-1] = data_len - sum(lengths[0:-1])
-
-    if random is False:
-        split_data = []
-        indices = list(range(data_len))
-        index = 0
-        for length in lengths:
-            split_data.append(Subset(dataset, indices[index:index + length]))
-            index += length
-    elif generator is None:
-        split_data = random_split(dataset, lengths)
-    else:
-        split_data = random_split(dataset, lengths, generator)
-
-    return tuple((func_call(DataLoader, [split_data[i]], options[i] if list_options else options) for i in range(len(ratios))))
-
-
-def _visualize(step: int, total_steps: int, metrics: Optional[dict] = None, step_time: Optional[float] = None, progress_len: int = 25):
+def _visualize(step: int, total_steps: int, metrics: Optional[dict] = None, step_time: Union[float, TimeRecord, None] = None, progress_len: int = 25):
     """
     控制台可视化，像keras一样可视化训练过程，我最喜欢的部分，因为看起来很酷
     :param step: 当前训练step
@@ -331,39 +295,39 @@ def _forward(
     compute_avg, _ = _average_metrics()
     # 评估指标
     metrics_result = {}
+    # 回调执行器
     callback_exec = CallbackExecutor(callbacks)
+    # 记录运行时间
+    time_record = TimeRecord()
 
     console.info('predicting...')
     with torch.no_grad():
-        for step, data in enumerate(dataset):
-            x, y_true = unpack(data, 2)
-            # 记录开始时间
-            start_time = time()
-            # 需要类型转换则警告
-            cast_warning.warn(get_dtype(x), dtype)
-            # 前向传播
-            y_pred = model(cast(x, device, dtype))
-            # 设备转换
-            y_true = cast(y_true, device)
-            # 评估模式计算评估指标
-            if mode == 'evaluate':
-                metrics_result = compute_avg(compute_metrics(y_pred, y_true, metrics, val), step + 1)
-            # 推断模式将结果拼接
-            elif mode == 'predict':
-                y_pred_total += y_pred
-            elif mode == 'traverse':
-                _metrics = compute_metrics(y_pred, y_true, metrics, val)
-                callback_exec.step_end(StepEndContext(
-                    step=step,
-                    y_pred=y_pred,
-                    y_true=y_true,
-                    metrics=_metrics
-                ))
-            del y_pred, y_true
-            # 记录结束时间
-            end_time = time()
+        for step, temp in enumerate(dataset):
+            with time_record:
+                x, y_true = unpack(temp, 2)
+                # 需要类型转换则警告
+                cast_warning.warn(get_dtype(x), dtype)
+                # 前向传播
+                y_pred = model(cast(x, device, dtype))
+                # 设备转换
+                y_true = cast(y_true, device)
+                # 评估模式计算评估指标
+                if mode == 'evaluate':
+                    metrics_result = compute_avg(compute_metrics(y_pred, y_true, metrics, val), step + 1)
+                # 推断模式将结果拼接
+                elif mode == 'predict':
+                    y_pred_total += y_pred
+                elif mode == 'traverse':
+                    _metrics = compute_metrics(y_pred, y_true, metrics, val)
+                    callback_exec.step_end(StepEndContext(
+                        step=step,
+                        y_pred=y_pred,
+                        y_true=y_true,
+                        metrics=_metrics
+                    ))
+                del y_pred, y_true
             # 如果设置了控制台打印输出，则显示当前预测进度
-            console.info(_visualize(step + 1, total_steps, step_time=end_time - start_time), mode='r')
+            console.info(_visualize(step + 1, total_steps, step_time=time_record), mode='r')
     console.info()
 
     if mode == 'evaluate':

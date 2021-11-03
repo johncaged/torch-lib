@@ -1,6 +1,7 @@
 from typing import Optional, Union, Tuple
 from torch.nn import Module
 from torch import Tensor
+from time import time
 
 
 def func_call(
@@ -141,18 +142,18 @@ def to_number(number_like):
         return number_like
 
 
-def time_format(time: float) -> str:
+def time_format(_time: float) -> str:
     """
     时间格式化
-    :param time: 待格式化时间
+    :param _time: 待格式化时间
     :return: 格式化后的时间
     """
-    if time < 0:
+    if _time < 0:
         return '--'
     # 转换为秒
-    time = int(time)
+    _time = int(_time)
 
-    m, s = divmod(time, 60)
+    m, s = divmod(_time, 60)
     h, m = divmod(m, 60)
     return '%d:%02d:%02d' % (h, m, s)
 
@@ -198,3 +199,22 @@ def build_from_dict(self, kwargs: dict, required_params: Union[list, tuple, set,
     assert set(kwargs.keys()) >= set(required_params), 'class init params missing'
     for key in kwargs:
         setattr(self, key, kwargs[key])
+
+
+class TimeRecord:
+
+    def __init__(self):
+        self.begin = 0
+        self.end = 0
+
+    def __enter__(self):
+        self.begin = time()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.end = time()
+
+    def time(self):
+        return self.end - self.begin
+
+    def __float__(self):
+        return float(self.end - self.begin)
