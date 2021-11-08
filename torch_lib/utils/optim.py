@@ -1,4 +1,4 @@
-from torch.optim import Adam, SGD, Optimizer
+from torch.optim import Adam, SGD, Optimizer, Adagrad
 from typing import Optional, Union
 from torch_lib.utils import func_call
 
@@ -17,7 +17,8 @@ def get_optimizer(optimizer: Union[str, Optimizer, None], optimizer_options: Opt
 
     optimizer_dict = {
         'adam': Adam,
-        'sgd': SGD
+        'sgd': SGD,
+        'ada': Adagrad
     }
     optimizer = optimizer_dict.get(optimizer, None)
     assert optimizer is not None, 'optimizer not supported'

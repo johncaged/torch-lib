@@ -1,4 +1,6 @@
 from torch_lib.utils import build_from_dict
+from typing import Optional
+from torch.nn import Module
 
 
 class _Context:
@@ -32,6 +34,12 @@ class StepEndContext(_Context):
 
     def __init__(self, **kwargs):
         super(StepEndContext, self).__init__()
+        self.step: Optional[int] = None
+        self.total_steps: Optional[int] = None
+        self.metrics: Optional[dict] = None
+        self.model: Optional[Module] = None
+        self.y_pred = None
+        self.y_true = None
         build_from_dict(self, kwargs, required_params=[])
 
 
@@ -46,4 +54,8 @@ class EpochEndContext(_Context):
 
     def __init__(self, **kwargs):
         super(EpochEndContext, self).__init__()
+        self.metrics: Optional[dict] = None
+        self.total_epochs: Optional[int] = None
+        self.epoch: Optional[int] = None
+        self.model: Optional[Module] = None
         build_from_dict(self, kwargs, required_params=[])

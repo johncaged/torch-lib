@@ -16,6 +16,18 @@ from torch.utils.data import DataLoader
 model = Module() # 标准的pytorch建模过程，详见pytorch官方文档，此行代码仅表示model的类型
 dataset = DataLoader() # 标准的数据集格式，详见pytorch官方文档，此行代码仅表示dataset的类型
 loss_options = { 'option1': 'value' }
-fit(model=model, train_dataset=dataset, epochs=100, loss_func='ce', optimizer='adam', metrics=None, learning_rate=1e-4, lr_decay='step', loss_options=loss_options, optimizer_options=None, lr_decay_options=None, device='cpu')
-
+fit(
+    model=model,
+    train_dataset=dataset,
+    epochs=100,
+    loss_func='ce',
+    optimizer='adam',
+    metrics=None,
+    learning_rate=1e-4,
+    lr_decay='step',
+    loss_options=loss_options,
+    optimizer_options=None,
+    lr_decay_options=None,
+    device='cpu'
+)
 ```

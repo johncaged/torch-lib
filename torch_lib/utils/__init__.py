@@ -90,7 +90,8 @@ def get_device(obj: Union[Tensor, Module]):
     :return: obj所在的设备
     """
     if isinstance(obj, Module):
-        return next(obj.parameters()).device
+        parameter = next(obj.parameters(), None)
+        return parameter.device if parameter else None
     elif isinstance(obj, Tensor):
         return obj.device
     else:
@@ -104,7 +105,8 @@ def get_dtype(obj: Union[Tensor, Module]):
     :return: obj所属的数据类型
     """
     if isinstance(obj, Module):
-        return next(obj.parameters()).dtype
+        parameter = next(obj.parameters(), None)
+        return parameter.dtype if parameter else None
     elif isinstance(obj, Tensor):
         return obj.dtype
     else:
@@ -186,7 +188,7 @@ def unpack(data: Union[tuple, list, object], output_len: int):
         return tuple([data[i if i < data_len else data_len - 1] for i in range(output_len)])
 
 
-def build_from_dict(self, kwargs: dict, required_params: Union[list, tuple, set, None] = None):
+def build_from_dict(self: object, kwargs: dict, required_params: Union[list, tuple, set, None] = None):
     """
     通过字典构建对象的参数
     :param self:
@@ -197,11 +199,13 @@ def build_from_dict(self, kwargs: dict, required_params: Union[list, tuple, set,
     if required_params is None:
         required_params = set()
     assert set(kwargs.keys()) >= set(required_params), 'class init params missing'
-    for key in kwargs:
-        setattr(self, key, kwargs[key])
+    self.__dict__.update(kwargs)
 
 
 class TimeRecord:
+    """
+    记录运行时间
+    """
 
     def __init__(self):
         self.begin = 0

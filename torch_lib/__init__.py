@@ -72,8 +72,6 @@ def fit(
         'optimizer': optimizer
     }, lr_decay_options)
     scheduler = get_scheduler(lr_decay, lr_decay_options)
-    # 计算总training steps
-    total_steps = len(train_dataset)
     # 返回一个计算平均metrics的函数（用于训练集的训练过程展示）
     avg_metrics, clear_metrics = _average_metrics()
     # 将callbacks汇总
@@ -94,6 +92,8 @@ def fit(
             epoch=i
         ))
 
+        # 计算总training steps
+        total_steps = len(train_dataset)
         # 切换到训练模式
         model.train()
 
@@ -121,7 +121,7 @@ def fit(
                 train_metrics = compute_metrics(y_pred, y_true, metrics)
                 # 计算这个epoch上的平均metrics
                 avg_train_metrics = avg_metrics(train_metrics, step + 1)
-                # 执行step_callbacks回调函数
+                # 执行step_end回调函数
                 callback_exec.step_end(StepEndContext(
                     metrics=avg_train_metrics,
                     step=step,
@@ -142,7 +142,7 @@ def fit(
             val_metrics = evaluate(model, val_dataset, metrics, console_print=False, val=True)
             epoch_metrics = dict_merge(epoch_metrics, val_metrics)
             console.info(_visualize(total_steps, total_steps, epoch_metrics), mode='r')
-        # 执行epoch_callbacks回调函数
+        # 执行epoch_end回调函数
         callback_exec.epoch_end(EpochEndContext(
             metrics=epoch_metrics,
             total_epochs=epochs,
@@ -323,7 +323,8 @@ def _forward(
                         step=step,
                         y_pred=y_pred,
                         y_true=y_true,
-                        metrics=_metrics
+                        metrics=_metrics,
+                        total_steps=total_steps
                     ))
                 del y_pred, y_true
             # 如果设置了控制台打印输出，则显示当前预测进度
