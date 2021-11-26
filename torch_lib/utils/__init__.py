@@ -4,7 +4,7 @@ from torch import Tensor
 from time import time
 
 
-class NoneType:
+class Nothing:
     """
     用于torch-lib中空类型的特殊标识，与python中的None区分，防止冲突
     """
@@ -12,13 +12,13 @@ class NoneType:
         pass
 
 
-def is_none_type(obj):
+def is_nothing(obj):
     """
-    判断是否是NoneType类型
+    判断是否是Nothing类型
     :param obj: 需判断的对象
     :return: bool
     """
-    return isinstance(obj, NoneType)
+    return isinstance(obj, Nothing)
 
 
 def func_call(
@@ -227,7 +227,7 @@ def list_take(list_like, index: Union[List[int], Tuple[int], int]):
     :return: 一个列表元素或子列表
     """
     if index is None:
-        return NoneType()
+        return Nothing()
     elif isinstance(index, int):
         return list_like[index]
     elif isinstance(index, (list, tuple)):
