@@ -143,7 +143,7 @@ def fit(
         epoch_metrics = avg_train_metrics
         # 验证集验证
         if val_dataset:
-            val_metrics = evaluate(model, val_dataset, metrics, console_print=False, val=True)
+            val_metrics = evaluate(model, val_dataset, metrics, console_print=False, val=True, data_parser=data_parser)
             epoch_metrics = dict_merge(epoch_metrics, val_metrics)
             console.info(_visualize(total_steps, total_steps, epoch_metrics), mode='r')
         # 执行epoch_end回调函数
