@@ -92,4 +92,5 @@ class IndexParser(DataParser):
         self.extra = extra
 
     def parse(self, data):
+        # TODO:如果x、y、extra包含重叠的元素取值，应该注意它们指向同一个对象，在对原对象进行修改时应该注意。
         return list_take(data, self.x), list_take(data, self.y), list_take(data, self.extra)

@@ -228,13 +228,19 @@ def list_take(list_like, index: Union[List[int], Tuple[int], int]):
     """
     if index is None:
         return Nothing()
-    elif isinstance(index, int):
-        return list_like[index]
+    # list_like为单一元素则转换为长度为1的元组
+    if isinstance(list_like, (list, tuple)) is False:
+        list_like = (list_like,)
+    # 取元素
+    if isinstance(index, int):
+        # 超界则返回Nothing
+        return list_like[index] if index < len(list_like) else Nothing()
     elif isinstance(index, (list, tuple)):
         # TODO:list类型效率问题
         temp = []
         for i in index:
-            temp.append(list_like[i])
+            # 超界则为Nothing
+            temp.append(list_like[i] if i < len(list_like) else Nothing())
         return tuple(temp)
 
 
