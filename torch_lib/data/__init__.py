@@ -1,12 +1,12 @@
-from typing import Sized, Optional, Union
+from typing import Sized, Optional, Union, List, Tuple, Any
 from torch.utils.data import DataLoader, random_split, Dataset, Subset
 from torch import Generator
-from torch_lib.utils import func_call
+from torch_lib.utils import func_call, list_take
 from abc import abstractmethod
 from torch_lib.data.context import DataProviderContext
 
 
-def pack(dataset: Dataset, ratios: Optional[list] = None, random: bool = True, generator: Optional[Generator] = None, options: Union[dict, list, None] = None):
+def pack(dataset: Dataset, ratios: Optional[list] = None, random: bool = True, generator: Optional[Generator] = None, options: Union[dict, list, None] = None, return_loader: bool = True):
     """
     数据集分割以及打包成DataLoader
     :param dataset: 数据集
@@ -14,6 +14,7 @@ def pack(dataset: Dataset, ratios: Optional[list] = None, random: bool = True, g
     :param random: 随机分割还是顺序分割
     :param generator: 随机分割的种子
     :param options: DataLoader选项
+    :param return_loader: 返回DataLoader还是分割好的原Dataset
     :return:
     """
     ratios = [1.0] if ratios is None else ratios
@@ -42,7 +43,10 @@ def pack(dataset: Dataset, ratios: Optional[list] = None, random: bool = True, g
     else:
         split_data = random_split(dataset, lengths, generator)
 
-    return tuple((func_call(DataLoader, [split_data[i]], options[i] if list_options else options) for i in range(len(ratios))))
+    if return_loader:
+        return tuple((func_call(DataLoader, [split_data[i]], options[i] if list_options else options) for i in range(len(ratios))))
+    else:
+        return tuple(split_data)
 
 
 class DataProvider:
@@ -63,3 +67,29 @@ class ConstantDataProvider(DataProvider):
 
     def get(self, ctx: DataProviderContext):
         return self.dataset
+
+
+class DataParser:
+
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    def parse(self, data) -> Tuple[Any, Any, Any]:
+        pass
+
+
+class IndexParser(DataParser):
+
+    def __init__(self,
+                 x: Union[List[int], Tuple[int], int] = 0,
+                 y: Union[List[int], Tuple[int], int] = 1,
+                 extra: Union[List[int], Tuple[int], int] = None
+                 ):
+        super(IndexParser, self).__init__()
+        self.x = x
+        self.y = y
+        self.extra = extra
+
+    def parse(self, data):
+        return list_take(data, self.x), list_take(data, self.y), list_take(data, self.extra)

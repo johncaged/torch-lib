@@ -14,7 +14,7 @@ from torch_lib.log.info import device_info, PlainInfo
 from torch_lib.log import color_format, progress
 from torch_lib.callback import Callback, CallbackExecutor
 from torch_lib.callback.context import BeginContext, EndContext, StepBeginContext, StepEndContext, EpochBeginContext, EpochEndContext
-from torch_lib.data import DataProvider, ConstantDataProvider
+from torch_lib.data import DataProvider, ConstantDataProvider, DataParser, IndexParser
 from torch_lib.data.context import DataProviderContext
 
 
@@ -30,7 +30,8 @@ def fit(
         optimizer_options: Optional[dict] = None,
         lr_decay_options: Optional[dict] = None,
         callbacks: Union[Callback, List[Callback]] = None,
-        console_print: bool = True
+        console_print: bool = True,
+        data_parser: Optional[DataParser] = None
 ):
     """
     最最最核心的训练函数，训练使用的设备由模型所在设备决定:cpu/cuda
@@ -46,6 +47,7 @@ def fit(
     :param lr_decay_options: 学习率衰减的配置，与损失函数配置和优化器配置同理
     :param callbacks: 回调函数插件
     :param console_print: 是否控制台可视化
+    :param data_parser: 数据转换类
     :return: None
     """
     # 检查模型所在设备
@@ -76,6 +78,8 @@ def fit(
     avg_metrics, clear_metrics = _average_metrics()
     # 将callbacks汇总
     callback_exec = CallbackExecutor(callbacks)
+    # 数据转换类
+    data_parser: DataParser = type_check(data_parser, DataParser, IndexParser())
     # 计时器
     time_record = TimeRecord()
 
@@ -102,7 +106,7 @@ def fit(
         for step, temp in enumerate(train_dataset):
             # 记录运行时间
             with time_record:
-                x, y_true = unpack(temp, 2)
+                x, y_true, extra = data_parser.parse(temp)
                 # 需要类型转换则警告
                 cast_warning.warn(get_dtype(x), dtype)
                 # 前向传播
@@ -159,7 +163,8 @@ def evaluate(
         dataset: DataLoader,
         metrics: list,
         console_print: bool = True,
-        val: bool = False
+        val: bool = False,
+        data_parser: Optional[DataParser] = None
 ):
     """
     模型评估
@@ -168,6 +173,7 @@ def evaluate(
     :param metrics: 评估指标
     :param console_print: 是否将预测进度展示在控制台
     :param val: 是否是验证集
+    :param data_parser: 数据转换类
     :return: 评估指标的字典（如： { 'loss': 0.123456, 'acc': 0.985612 }）
     """
     # 获取模型所在的设备及数据类型
@@ -176,25 +182,39 @@ def evaluate(
     # 输出设备日志
     device_info.info(device)
     metrics = parse_metrics(metrics, device, dtype)
-    return _forward(model, dataset, 'evaluate', console_print, metrics, val)
+    return _forward(model, dataset, 'evaluate', console_print, metrics, val, data_parser=data_parser)
 
 
-def predict(model: Module, dataset: DataLoader, console_print: bool = True):
+def predict(
+        model: Module,
+        dataset: DataLoader,
+        console_print: bool = True,
+        data_parser: Optional[DataParser] = None
+):
     """
 
     :param model: 模型
     :param dataset: 数据集
     :param console_print: 是否将推断进度显示在控制台
+    :param data_parser: 数据转换类
     :return: 返回结果的预测值和真实值
     """
     # 获取模型所在的设备及数据类型
     device = get_device(model)
     # 输出设备日志
     device_info.info(device)
-    return _forward(model, dataset, 'predict', console_print)
+    return _forward(model, dataset, 'predict', console_print, data_parser=data_parser)
 
 
-def traverse(model: Module, dataset: DataLoader, callbacks: Union[Callback, List[Callback]], metrics: Optional[list] = None, console_print: bool = True, val: bool = False):
+def traverse(
+        model: Module,
+        dataset: DataLoader,
+        callbacks: Union[Callback, List[Callback]],
+        metrics: Optional[list] = None,
+        console_print: bool = True,
+        val: bool = False,
+        data_parser: Optional[DataParser] = None
+):
     """
 
     :param model: 模型
@@ -203,13 +223,14 @@ def traverse(model: Module, dataset: DataLoader, callbacks: Union[Callback, List
     :param metrics: 遍历时计算评估指标
     :param console_print: 是否将推断进度显示在控制台
     :param val: 是否是验证集
+    :param data_parser: 数据转换类
     :return: None
     """
     # 获取模型所在的设备及数据类型
     device = get_device(model)
     dtype = get_dtype(model)
     metrics = parse_metrics(metrics, device, dtype)
-    return _forward(model, dataset, 'traverse', console_print, metrics=metrics, callbacks=callbacks, val=val)
+    return _forward(model, dataset, 'traverse', console_print, metrics=metrics, callbacks=callbacks, val=val, data_parser=data_parser)
 
 
 def _visualize(step: int, total_steps: int, metrics: Optional[dict] = None, step_time: Union[float, TimeRecord, None] = None, progress_len: int = 25):
@@ -261,6 +282,7 @@ def _average_metrics():
     return compute_avg, clear_metrics
 
 
+@torch.no_grad()
 def _forward(
         model: Module,
         dataset: DataLoader,
@@ -268,7 +290,8 @@ def _forward(
         console_print: bool = True,
         metrics: list = None,
         val: bool = False,
-        callbacks: Union[Callback, List[Callback], None] = None
+        callbacks: Union[Callback, List[Callback], None] = None,
+        data_parser: Optional[DataParser] = None
 ):
     # 切换到预测模式
     model.eval()
@@ -297,38 +320,39 @@ def _forward(
     metrics_result = {}
     # 回调执行器
     callback_exec = CallbackExecutor(callbacks)
+    # 数据转换类
+    data_parser: DataParser = type_check(data_parser, DataParser, IndexParser())
     # 记录运行时间
     time_record = TimeRecord()
 
     console.info('predicting...')
-    with torch.no_grad():
-        for step, temp in enumerate(dataset):
-            with time_record:
-                x, y_true = unpack(temp, 2)
-                # 需要类型转换则警告
-                cast_warning.warn(get_dtype(x), dtype)
-                # 前向传播
-                y_pred = model(cast(x, device, dtype))
-                # 设备转换
-                y_true = cast(y_true, device)
-                # 评估模式计算评估指标
-                if mode == 'evaluate':
-                    metrics_result = compute_avg(compute_metrics(y_pred, y_true, metrics, val), step + 1)
-                # 推断模式将结果拼接
-                elif mode == 'predict':
-                    y_pred_total += y_pred
-                elif mode == 'traverse':
-                    _metrics = compute_metrics(y_pred, y_true, metrics, val)
-                    callback_exec.step_end(StepEndContext(
-                        step=step,
-                        y_pred=y_pred,
-                        y_true=y_true,
-                        metrics=_metrics,
-                        total_steps=total_steps
-                    ))
-                del y_pred, y_true
-            # 如果设置了控制台打印输出，则显示当前预测进度
-            console.info(_visualize(step + 1, total_steps, step_time=time_record), mode='r')
+    for step, temp in enumerate(dataset):
+        with time_record:
+            x, y_true, extra = data_parser.parse(temp)
+            # 需要类型转换则警告
+            cast_warning.warn(get_dtype(x), dtype)
+            # 前向传播
+            y_pred = model(cast(x, device, dtype))
+            # 设备转换
+            y_true = cast(y_true, device)
+            # 评估模式计算评估指标
+            if mode == 'evaluate':
+                metrics_result = compute_avg(compute_metrics(y_pred, y_true, metrics, val), step + 1)
+            # 推断模式将结果拼接
+            elif mode == 'predict':
+                y_pred_total += y_pred
+            elif mode == 'traverse':
+                _metrics = compute_metrics(y_pred, y_true, metrics, val)
+                callback_exec.step_end(StepEndContext(
+                    step=step,
+                    y_pred=y_pred,
+                    y_true=y_true,
+                    metrics=_metrics,
+                    total_steps=total_steps
+                ))
+            del y_pred, y_true
+        # 如果设置了控制台打印输出，则显示当前预测进度
+        console.info(_visualize(step + 1, total_steps, step_time=time_record), mode='r')
     console.info()
 
     if mode == 'evaluate':

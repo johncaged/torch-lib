@@ -1,7 +1,24 @@
-from typing import Optional, Union, Tuple
+from typing import Optional, Union, Tuple, List
 from torch.nn import Module
 from torch import Tensor
 from time import time
+
+
+class NoneType:
+    """
+    用于torch-lib中空类型的特殊标识，与python中的None区分，防止冲突
+    """
+    def __init__(self):
+        pass
+
+
+def is_none_type(obj):
+    """
+    判断是否是NoneType类型
+    :param obj: 需判断的对象
+    :return: bool
+    """
+    return isinstance(obj, NoneType)
 
 
 def func_call(
@@ -91,7 +108,7 @@ def get_device(obj: Union[Tensor, Module]):
     """
     if isinstance(obj, Module):
         parameter = next(obj.parameters(), None)
-        return parameter.device if parameter else None
+        return parameter.device if parameter is not None else None
     elif isinstance(obj, Tensor):
         return obj.device
     else:
@@ -106,7 +123,7 @@ def get_dtype(obj: Union[Tensor, Module]):
     """
     if isinstance(obj, Module):
         parameter = next(obj.parameters(), None)
-        return parameter.dtype if parameter else None
+        return parameter.dtype if parameter is not None else None
     elif isinstance(obj, Tensor):
         return obj.dtype
     else:
@@ -200,6 +217,25 @@ def build_from_dict(self: object, kwargs: dict, required_params: Union[list, tup
         required_params = set()
     assert set(kwargs.keys()) >= set(required_params), 'class init params missing'
     self.__dict__.update(kwargs)
+
+
+def list_take(list_like, index: Union[List[int], Tuple[int], int]):
+    """
+    根据下标获取列表元素（或子列表）
+    :param list_like: list、tuple或其他可取下标的类
+    :param index: 元素索引
+    :return: 一个列表元素或子列表
+    """
+    if index is None:
+        return NoneType()
+    elif isinstance(index, int):
+        return list_like[index]
+    elif isinstance(index, (list, tuple)):
+        # TODO:list类型效率问题
+        temp = []
+        for i in index:
+            temp.append(list_like[i])
+        return tuple(temp)
 
 
 class TimeRecord:
