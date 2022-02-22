@@ -5,6 +5,7 @@ torch_lib.egg-info
 .eggs
 build
 dist
+test
 
 # pycache文件
 **/__pycache__
