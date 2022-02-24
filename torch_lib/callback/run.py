@@ -1,5 +1,5 @@
 from torch_lib.callback import Callback
-from torch_lib.context.common import RunContext
+from torch_lib.context import Context
 from torch_lib.utils import AddAccessFilter, MultiConst, AccessFilter, ListAccessFilter
 from torch_lib.utils.type import ExtendedSequence
 from typing import List
@@ -12,22 +12,22 @@ class RunCallback(Callback):
     def __init__(self):
         super().__init__()
 
-    def begin(self, ctx: RunContext):
+    def begin(self, ctx: Context):
         pass
 
-    def end(self, ctx: RunContext):
+    def end(self, ctx: Context):
         pass
 
-    def step_begin(self, ctx: RunContext):
+    def step_begin(self, ctx: Context):
         pass
     
-    def step_end(self, ctx: RunContext):
+    def step_end(self, ctx: Context):
         pass
 
-    def epoch_begin(self, ctx: RunContext):
+    def epoch_begin(self, ctx: Context):
         pass
 
-    def epoch_end(self, ctx: RunContext):
+    def epoch_end(self, ctx: Context):
         pass
 
 
@@ -47,9 +47,26 @@ class RunCallbackExecutor(RunCallback):
         if run_callbacks is not None:
             self.extend(run_callbacks)
 
-    def set_instance_ctx(self, instance_ctx):
-        # Set instance context to itself.
-        super().set_instance_ctx(instance_ctx)
-        # Set instance context to all its sub run callbacks.
+    def begin(self, ctx: Context):
         for run_callback in self.run_callbacks:
-            run_callback.set_instance_ctx(instance_ctx)
+            run_callback.begin(ctx)
+    
+    def end(self, ctx: Context):
+        for run_callback in self.run_callbacks:
+            run_callback.end(ctx)
+    
+    def step_begin(self, ctx: Context):
+        for run_callback in self.run_callbacks:
+            run_callback.step_begin(ctx)
+    
+    def step_end(self, ctx: Context):
+        for run_callback in self.run_callbacks:
+            run_callback.step_end(ctx)
+    
+    def epoch_begin(self, ctx: Context):
+        for run_callback in self.run_callbacks:
+            run_callback.epoch_begin(ctx)
+    
+    def epoch_end(self, ctx: Context):
+        for run_callback in self.run_callbacks:
+            run_callback.epoch_end(ctx)

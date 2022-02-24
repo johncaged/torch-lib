@@ -1,5 +1,10 @@
-from torch_lib.utils import MultiConst, get_device, type_cast
-from torch_lib.context.common import RunContext
+from typing import TypeVar
+from torch_lib.utils import MultiConst, get_device, type_cast, MethodChaining
+from torch_lib.context import Context
+from torch_lib.core.handler import BatchHandler
+
+
+MP = TypeVar('MP', bound='ModelProxy')
 
 
 class ModelProxy:
@@ -11,12 +16,29 @@ class ModelProxy:
         # set model and apply type cast
         self.model = type_cast(model, self.device)
         # set config
-        self.config = RunContext()
+        self.config = Context()
 
-    def fit(self):
-        self.model.train()
-        pass
+    @MethodChaining
+    def fit(self) -> MP:
+        self.config.fit_handlers(self.config)
 
-    def evaluate(self):
-        pass
+    @MethodChaining
+    def predict(self) -> MP:
+        self.config.predict_handlers(self.config)
+
+    @MethodChaining
+    def evaluate(self) -> MP:
+        self.config.evaluate_handlers(self.config)
+
+    @MethodChaining
+    def build_fit(self) -> MP:
+        self.config.fit_handlers = BatchHandler()
+
+    @MethodChaining
+    def build_predict(self) -> MP:
+        self.config.predict_handlers = BatchHandler()
+
+    @MethodChaining
+    def build_evaluate(self) -> MP:
+        self.config.evaluate_handlers = BatchHandler()
 

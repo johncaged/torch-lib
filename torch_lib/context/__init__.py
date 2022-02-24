@@ -1,4 +1,4 @@
-from torch_lib.utils import Base, AccessFilter
+from torch_lib.utils import Base
 
 
 class Context(Base):

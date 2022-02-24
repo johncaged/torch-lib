@@ -234,11 +234,11 @@ def ListAccessFilter(name):
     return access_filter
 
 
-def get_device(obj: Union[Tensor, Module]):
+def get_device(obj: T_M):
     """Get the device of the model or tensor.
 
     Args:
-        obj (Union[Tensor, Module]): model or tensor
+        obj (T_M): model or tensor
 
     Returns:
         device: the device
@@ -315,6 +315,14 @@ def list_take(list_like, index: Union[List[int], Tuple[int], int]):
         return list_like[index] if index < list_len else Nothing()
     elif isinstance(index, (list, tuple)):
         return tuple(list_like[i] if i < list_len else Nothing() for i in index)
+
+
+def MethodChaining(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        func(self, *args, **kwargs)
+        return self
+    return wrapper
 
 
 class Iter:
