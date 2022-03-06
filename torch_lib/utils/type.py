@@ -9,6 +9,10 @@ from torch.nn import Module
 T_M = Union[Tensor, Module]
 # tensor or module or their sequence
 T_M_SEQ = Union[T_M, Sequence[T_M]]
+# int or float
+NUMBER = Union[int, float]
+# int or float. tuple
+NUMBER_T = (int, float)
 
 
 def ExtendedSequence(_type):

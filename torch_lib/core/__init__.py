@@ -11,23 +11,20 @@ class ModelProxy:
 
     config = MultiConst()
     def __init__(self, model, device=None):
-        # set device
-        self.device = device if device is not None else get_device(model)
-        # set model and apply type cast
-        self.model = type_cast(model, self.device)
         # set config
         self.config = Context()
+        # set device
+        self.config.device = device if device is not None else get_device(model)
+        # set model and apply type cast
+        self.config.model = type_cast(model, self.config.device)
 
-    @MethodChaining
-    def fit(self) -> MP:
+    def fit(self):
         self.config.fit_handlers(self.config)
 
-    @MethodChaining
-    def predict(self) -> MP:
+    def predict(self):
         self.config.predict_handlers(self.config)
 
-    @MethodChaining
-    def evaluate(self) -> MP:
+    def evaluate(self):
         self.config.evaluate_handlers(self.config)
 
     @MethodChaining

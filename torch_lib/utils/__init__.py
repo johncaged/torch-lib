@@ -33,6 +33,9 @@ class Nothing:
     def __setitem__(self, *_):
         pass
 
+    def __str__(self) -> str:
+        return 'Nothing'
+
 
 def is_nothing(obj):
     """Check whether an object is an instance of 'Nothing'
@@ -166,6 +169,17 @@ class MultiConst:
 
     def __get__(self, instance, _):
         return getattr(instance, self.private_name, Nothing())
+
+
+class Count(SingleConst):
+
+    def __init__(self):
+        super().__init__(0)
+
+    def __get__(self, *_):
+        tmp = self.value
+        self.value += 1
+        return tmp
 
 
 def AccessFilter(cls):

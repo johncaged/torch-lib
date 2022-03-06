@@ -5,7 +5,8 @@ color_dict = {
     'r': 31,
     'g': 32,
     'y': 33,
-    'b': 34
+    'b': 34,
+    'w': 38
 }
 
 info_prefix = '[TORCH_LIB INFO]'
@@ -22,6 +23,7 @@ def color_format(*args, color: str, sep: str = ' '):
 @Singleton
 class Console:
 
+    # TODO: 如果同时想要文件输出怎么设计
     def __init__(self):
         self._control = {
             'info': True,
@@ -30,17 +32,17 @@ class Console:
         }
 
     def info(self, *args):
-        self.output(color_format(info_prefix, *args, color='b'), type='info')
+        self.output(info_prefix, *args, type='info', color='b')
 
     def warn(self, *args):
-        self.output(color_format(warn_prefix, *args, color='y'), type='warn')
+        self.output(warn_prefix, *args, type='warn', color='y')
 
     def error(self, *args):
-        self.output(color_format(error_prefix, *args, color='r'), type='error')
+        self.output(error_prefix, *args, type='error', color='r')
 
-    def output(self, *args, type: str):
+    def output(self, *args, type: str, color: str = 'w'):
         if self._control.get(type, False) is True:
-            print(*args)
+            print(color_format(*args, color=color))
 
 
 console = Console()
