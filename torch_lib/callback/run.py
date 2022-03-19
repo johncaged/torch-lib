@@ -1,8 +1,7 @@
 from torch_lib.callback import Callback
 from torch_lib.context import Context
 from torch_lib.utils import AddAccessFilter, MultiConst, AccessFilter, ListAccessFilter
-from torch_lib.utils.type import ExtendedSequence
-from typing import List
+from typing import List, Union, Sequence
 
 
 class RunCallback(Callback):
@@ -31,6 +30,10 @@ class RunCallback(Callback):
         pass
 
 
+# run callback or sequence of run callbacks
+R_SEQ = Union[RunCallback, Sequence[RunCallback]]
+
+
 @AddAccessFilter(ListAccessFilter('run_callbacks'))
 @AccessFilter
 class RunCallbackExecutor(RunCallback):
@@ -39,7 +42,7 @@ class RunCallbackExecutor(RunCallback):
     """
     run_callbacks = MultiConst()
 
-    def __init__(self, run_callbacks: ExtendedSequence(RunCallback)=None):
+    def __init__(self, run_callbacks: R_SEQ = None):
         super().__init__()
         # Assign a const list to each run callback executor.
         self.run_callbacks: List[RunCallback] = []

@@ -7,6 +7,25 @@ from functools import wraps
 from time import time
 
 
+def Singleton(cls):
+    """
+    Decorator that makes decorated classes singleton.
+    It makes the creation of the singleton object thread-safe by using double-checked locking.
+    """
+    _lock = threading.Lock()
+    _instance = {}
+    
+    @wraps(cls)
+    def wrapper(*args, **kwargs):
+        if cls not in _instance:
+            with _lock:
+                if cls not in _instance:
+                    _instance[cls] = cls(*args, **kwargs)
+        return _instance[cls]
+    return wrapper
+
+
+@Singleton
 class Nothing:
     """
     'Nothing' object, different from python 'None'.
@@ -34,7 +53,13 @@ class Nothing:
         pass
 
     def __str__(self) -> str:
-        return 'Nothing'
+        return 'NOTHING'
+
+    def __repr__(self) -> str:
+        return 'NOTHING'
+
+
+NOTHING = Nothing()
 
 
 def is_nothing(obj):
@@ -47,6 +72,10 @@ def is_nothing(obj):
         bool: whether the object is instance of 'Nothing'
     """
     return isinstance(obj, Nothing)
+
+
+def dict_merge(dict1: Dict, dict2: Dict):
+    return { **dict1, **dict2 }
 
 
 class Base:
@@ -62,10 +91,10 @@ class Base:
         Args:
             kwargs (Dict): property dict.
         """
-        self.__dict__.update(kwargs)
+        dict_merge(self.__dict__, kwargs)
 
     def __getattr__(self, *_):
-        return Nothing()
+        return NOTHING
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -75,24 +104,6 @@ class Base:
 
     def __getattribute__(self, key):
         return super().__getattribute__(key)
-
-
-def Singleton(cls):
-    """
-    Decorator that makes decorated classes singleton.
-    It makes the creation of the singleton object thread-safe by using double-checked locking.
-    """
-    _lock = threading.Lock()
-    _instance = {}
-    
-    @wraps(cls)
-    def wrapper(*args, **kwargs):
-        if cls not in _instance:
-            with _lock:
-                if cls not in _instance:
-                    _instance[cls] = cls(*args, **kwargs)
-        return _instance[cls]
-    return wrapper
 
 
 class SingleConst:
@@ -108,7 +119,7 @@ class SingleConst:
     *****
     """
 
-    def __init__(self, value=Nothing()):
+    def __init__(self, value=NOTHING):
         # the default value will refer to the same 'Nothing'.
         super().__init__()
         self.value = value
@@ -160,7 +171,7 @@ class MultiConst:
         self.private_name = '_%s' % str(name)
 
     def __set__(self, instance, value):
-        temp = getattr(instance, self.private_name, Nothing())
+        temp = getattr(instance, self.private_name, NOTHING)
         if is_nothing(temp):
             setattr(instance, self.private_name, value)
         else:
@@ -168,7 +179,7 @@ class MultiConst:
             print('the value cannot be changed')
 
     def __get__(self, instance, _):
-        return getattr(instance, self.private_name, Nothing())
+        return getattr(instance, self.private_name, NOTHING)
 
 
 class Count(SingleConst):
@@ -244,7 +255,7 @@ def ListAccessFilter(name):
         elif key == 'extend':
             return extend(getattr(self, name))
         else:
-            return Nothing()
+            return NOTHING
     return access_filter
 
 
@@ -317,7 +328,7 @@ def list_take(list_like, index: Union[List[int], Tuple[int], int]):
         _type_: single item or list.
     """
     if index is None:
-        return Nothing()
+        return NOTHING
     # convert non-list item to list.
     if isinstance(list_like, (list, tuple)) is False:
         list_like = (list_like,)
@@ -326,9 +337,9 @@ def list_take(list_like, index: Union[List[int], Tuple[int], int]):
     # take item(s).
     if isinstance(index, int):
         # return nothing if the index is out of bounds.
-        return list_like[index] if index < list_len else Nothing()
+        return list_like[index] if index < list_len else NOTHING
     elif isinstance(index, (list, tuple)):
-        return tuple(list_like[i] if i < list_len else Nothing() for i in index)
+        return tuple(list_like[i] if i < list_len else NOTHING for i in index)
 
 
 def MethodChaining(func):
@@ -364,12 +375,12 @@ class Iter:
 
 class IterTool(Iter):
 
-    def __init__(self, arr, progress=False, time=False):
+    def __init__(self, arr, progress=False, time=False, index=False, total=False):
         self.arr = arr
         # 'super' method should be after the self.arr is assigned.
         super().__init__()
-        self.items = [progress, time]
-        self.func_set = [self.progress, self.time]
+        self.items = [progress, time, index, total]
+        self.func_set = [self.progress, self.time, self.index, self.total]
 
     def __getitem__(self, key):
         indexes = [index for index, value in enumerate(self.items) if value is True]
@@ -386,3 +397,9 @@ class IterTool(Iter):
 
     def time(self):
         return time()
+
+    def index(self):
+        return self._iter_start
+
+    def total(self):
+        return self.__len__()

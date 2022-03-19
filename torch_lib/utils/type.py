@@ -13,16 +13,3 @@ T_M_SEQ = Union[T_M, Sequence[T_M]]
 NUMBER = Union[int, float]
 # int or float. tuple
 NUMBER_T = (int, float)
-
-
-def ExtendedSequence(_type):
-    """Returns the sequence or single value type of the given type '_type'.
-
-    Args:
-        _type (Any): The given type.
-
-    Returns:
-        _type_: _description_
-    """
-    return Union[_type, Sequence[_type]]
-

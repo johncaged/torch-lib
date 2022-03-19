@@ -1,8 +1,7 @@
 from abc import abstractmethod
-from typing import List
-from torch_lib.utils import AddAccessFilter, AccessFilter, ListAccessFilter, MultiConst, IterTool, Nothing, type_cast
-from torch_lib.utils.type import ExtendedSequence
-import copy
+from typing import List, Sequence, Union
+from torch_lib.utils import AddAccessFilter, AccessFilter, ListAccessFilter, MultiConst, IterTool, NOTHING, type_cast
+from torch_lib.context import Context
 from functools import wraps
 from torch import set_grad_enabled
 
@@ -19,7 +18,7 @@ def TorchGrad(func):
     Set grad enabled or not according to the context mode.
     """
     @wraps(func)
-    def grad_switch(self, ctx):
+    def grad_switch(self, ctx: Context):
         # only when context mode is 'train' is the grad enabled
         set_grad_enabled(ctx.mode == 'train')(func)(self, ctx)
     return grad_switch
@@ -31,11 +30,15 @@ class CoreHandler:
         super().__init__()
 
     @abstractmethod
-    def handle(self, ctx):
+    def handle(self, ctx: Context):
         pass
 
-    def __call__(self, ctx):
+    def __call__(self, ctx: Context):
         self.handle(ctx)
+
+
+# core handler or sequence of core handlers
+C_SEQ = Union[CoreHandler, Sequence[CoreHandler]]
 
 
 @AddAccessFilter(ListAccessFilter('handlers'))
@@ -43,52 +46,49 @@ class CoreHandler:
 class BatchHandler(CoreHandler):
 
     handlers = MultiConst()
-    def __init__(self, handlers: ExtendedSequence(CoreHandler) = None):
+    def __init__(self, handlers: C_SEQ = None):
         super().__init__()
         self.handlers: List[CoreHandler] = []
         if handlers is not None:
             self.extend(handlers)
     
-    def handle(self, ctx):
+    def handle(self, ctx: Context):
         for handler in self.handlers:
             handler(ctx)
 
 
 class EpochIterationHandler(BatchHandler):
 
-    def __init__(self, handlers: ExtendedSequence(CoreHandler) = None):
+    def __init__(self, handlers: C_SEQ = None):
         super().__init__(handlers)
 
-    def handle(self, ctx):
-        # TODO
+    def handle(self, ctx: Context):
         # epoch loops
-        for epoch in range(ctx.epochs):
+        for current in range(ctx.epoch.total):
             # set current epoch to the context
-            ctx.epoch = epoch
+            ctx.epoch.current = current
             super()(ctx)
 
 
 class IterationHandler(BatchHandler):
 
-    def __init__(self, handlers: ExtendedSequence(CoreHandler) = None):
+    def __init__(self, handlers: C_SEQ = None):
         super().__init__(handlers)
 
     @TorchGrad
-    def handle(self, ctx):
-        for item, progress, time in IterTool(ctx.epoch.dataset, True, True):
-            # the context is copied to a new object because the original context object should not contain temporary data of a specific step.
-            step_ctx = copy.copy(ctx)
-            step_ctx.from_dict({
+    def handle(self, ctx: Context):
+        for item, progress, time, current, total in IterTool(ctx.dataset, True, True, True, True):
+            ctx.from_dict({
                 'step': {
                     'item': item, # original batch data of the dataset
-                    'progress': progress, # progress of iteration(includes step and total)
-                    'time': time # time of the iter(current time)
+                    'progress': progress, # progress of iteration(includes current step and total steps)
+                    'time': time, # time of the iter(current time)
+                    'current': current, # the current step
+                    'total': total # total steps of iteration
                 }
             })
             # carry out the subsequent actions
-            super()(step_ctx)
-            # release source
-            del step_ctx
+            super()(ctx)
 
 
 class ForwardHandler(CoreHandler):
@@ -133,9 +133,11 @@ class MetricsHandler(CoreHandler):
         super().__init__()
     
     def handle(self, ctx):
-        # TODO
-        # compute metrics
-        return super().handle(ctx)
+        ctx.from_dict({
+            'step': {
+                'metrics': ctx.metrics_callback_executor(ctx)
+            }
+        })
 
 
 class DisplayHandler(CoreHandler):
@@ -156,11 +158,9 @@ class DatasetHandler(CoreHandler):
     
     def handle(self, ctx):
         # get dataset through mode
-        dataset = ctx[provider_dict.get(ctx.mode, Nothing())].get(ctx)
+        dataset = ctx[provider_dict.get(ctx.mode, NOTHING)].get(ctx)
         ctx.from_dict({
-            'epoch': {
-                'dataset': dataset
-            }
+            'dataset': dataset
         })
 
 
@@ -175,7 +175,7 @@ class ModeHandler(CoreHandler):
         # set mode to the context
         ctx.mode = self.mode
         # change model mode to self.mode
-        getattr(ctx.model, self.mode, Nothing())()
+        getattr(ctx.model, self.mode, NOTHING)()
 
 
 # run callback adapters
