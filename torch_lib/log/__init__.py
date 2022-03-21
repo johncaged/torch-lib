@@ -12,6 +12,7 @@ color_dict = {
 info_prefix = '[TORCH_LIB INFO]'
 warn_prefix = '[TORCH_LIB WARN]'
 error_prefix = '[TORCH_LIB ERROR]'
+debug_prefix = '[TORCH_LIB DEBUG]'
 
 
 def color_format(*args, color: str, sep: str = ' '):
@@ -21,14 +22,15 @@ def color_format(*args, color: str, sep: str = ' '):
 
 
 @Singleton
-class Console:
+class Logger:
 
     # TODO: 如果同时想要文件输出怎么设计
     def __init__(self):
         self._control = {
             'info': True,
             'warn': True,
-            'error': True
+            'error': True,
+            'debug': True
         }
 
     def info(self, *args):
@@ -40,9 +42,12 @@ class Console:
     def error(self, *args):
         self.output(error_prefix, *args, type='error', color='r')
 
+    def debug(self, *args):
+        self.output(debug_prefix, *args, type='debug', color='g')
+
     def output(self, *args, type: str, color: str = 'w'):
         if self._control.get(type, False) is True:
             print(color_format(*args, color=color))
 
 
-console = Console()
+logger = Logger()

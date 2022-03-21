@@ -6,7 +6,7 @@ from torch_lib.callback import Callback
 from torch_lib.context import Context
 
 
-class MetricsCallback(Callback):
+class MetricCallback(Callback):
 
     count = Count()
     def __init__(self, name: str = None):
@@ -23,31 +23,31 @@ class MetricsCallback(Callback):
         elif isinstance(result, NUMBER_T):
             if self.name is None:
                 # use default name
-                self.name = 'metrics_%d' % self.count
+                self.name = 'metric_%d' % self.count
             return { self.name: result }
         return NOTHING
 
 
-# metrics callback or sequence of metrics callbacks
-M_SEQ = Union[MetricsCallback, Sequence[MetricsCallback]]
+# metric callback or sequence of metric callbacks
+M_SEQ = Union[MetricCallback, Sequence[MetricCallback]]
 
 
-@AddAccessFilter(ListAccessFilter('metrics_callbacks'))
+@AddAccessFilter(ListAccessFilter('metric_callbacks'))
 @AccessFilter
-class MetricsCallbackExecutor(MetricsCallback):
+class MetricCallbackExecutor(MetricCallback):
 
-    metrics_callbacks = MultiConst()
-    def __init__(self, metrics: M_SEQ = None):
+    metric_callbacks = MultiConst()
+    def __init__(self, metric_callbacks: M_SEQ = None):
         super().__init__()
-        self.metrics_callbacks: List[MetricsCallback] = []
-        # add metrics to the list
-        if metrics is not None:
-            self.extend(metrics)
+        self.metric_callbacks: List[MetricCallback] = []
+        # add metric callbacks to the list
+        if metric_callbacks is not None:
+            self.extend(metric_callbacks)
 
-    def __call__(self, ctx: Context) -> Union[Dict, Nothing]:
+    def get(self, ctx: Context) -> Union[Dict, NUMBER]:
         result = {}
-        for metrics in self.metrics_callbacks:
-            _res = metrics(ctx)
+        for metric_callback in self.metric_callbacks:
+            _res = metric_callback(ctx)
             # is not Nothing
             if is_nothing(_res) is False:
                 dict_merge(result, _res)

@@ -1,10 +1,12 @@
-from typing import Dict, List, Union, Tuple
+# TODO: refactor the utils package
+from typing import Dict, Union, Tuple, Sequence
 from torch_lib.utils.type import T_M_SEQ, T_M
 from torch import Tensor
 from torch.nn import Module
 import threading
 from functools import wraps
 from time import time
+import traceback
 
 
 def Singleton(cls):
@@ -23,6 +25,27 @@ def Singleton(cls):
                     _instance[cls] = cls(*args, **kwargs)
         return _instance[cls]
     return wrapper
+
+
+# set import here to avoid import error
+from torch_lib.log import logger
+
+
+def InvocationDebug(module_name):
+    """A decorator that output debug information before and after a method is invoked.
+
+    Args:
+        func (_type_): _description_
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            logger.debug(module_name, 'begin.')
+            result = func(*args, **kwargs)
+            logger.debug(module_name, 'end.')
+            return result
+        return wrapper
+    return decorator
 
 
 @Singleton
@@ -52,6 +75,12 @@ class Nothing:
     def __setitem__(self, *_):
         pass
 
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        raise StopIteration
+
     def __str__(self) -> str:
         return 'NOTHING'
 
@@ -71,7 +100,7 @@ def is_nothing(obj):
     Returns:
         bool: whether the object is instance of 'Nothing'
     """
-    return isinstance(obj, Nothing)
+    return obj == NOTHING
 
 
 def dict_merge(dict1: Dict, dict2: Dict):
@@ -91,16 +120,50 @@ class Base:
         Args:
             kwargs (Dict): property dict.
         """
-        dict_merge(self.__dict__, kwargs)
+        self.__dict__ = dict_merge(self.__dict__, kwargs)
+
+    def check(self, item: str):
+        """check whether the object has a specific attribute.
+        dot operator supported.
+
+        Args:
+            items (str): _description_
+        """
+        attrs = item.split('.')
+        temp = self
+        for attr in attrs:
+            try:
+                temp = temp[attr]
+                # if the value is NOTHING, then return NOTHING directly.
+                if is_nothing(temp):
+                    return NOTHING
+            except Exception:
+                return self.process_exc()
+        return temp
+
+    @staticmethod
+    def process_exc():
+        # output error
+        logger.error(
+            'Python exception raised:\n' +
+            traceback.format_exc()
+        )
+        return NOTHING
 
     def __getattr__(self, *_):
         return NOTHING
 
     def __getitem__(self, key):
-        return getattr(self, key)
+        try:
+            return getattr(self, key)
+        except Exception:
+            return self.process_exc()
     
     def __setitem__(self, key, value):
-        return setattr(self, key, value)
+        try:
+            return setattr(self, key, value)
+        except Exception:
+            return self.process_exc()
 
     def __getattribute__(self, key):
         return super().__getattribute__(key)
@@ -317,12 +380,12 @@ def type_cast(obj: T_M_SEQ, device=None, dtype=None) -> Union[Tuple[Tensor, Modu
     return obj if len(obj) > 1 else obj[0]
 
 
-def list_take(list_like, index: Union[List[int], Tuple[int], int]):
+def list_take(list_like, index: Union[Sequence[int], int]):
     """Get item or sub list of the list_like object through index(es).
 
     Args:
         list_like (_type_): list-like object
-        index (Union[List[int], Tuple[int], int]): the index(es) to be taken.
+        index (Union[Sequence[int], int]): the index(es) to be taken.
 
     Returns:
         _type_: single item or list.
