@@ -75,6 +75,9 @@ class Nothing:
     def __setitem__(self, *_):
         pass
 
+    def __len__(self):
+        return 0
+
     def __iter__(self):
         return self
     

@@ -2,11 +2,13 @@ from torch_lib.utils import Singleton
 
 
 color_dict = {
-    'r': 31,
-    'g': 32,
-    'y': 33,
-    'b': 34,
-    'w': 38
+    'r': 31,  # red
+    'g': 32,  # green
+    'y': 33,  # yellow
+    'b': 34,  # blue
+    'p': 35,  # purple
+    'c': 36,  # cyan
+    'w': 38  # white
 }
 
 info_prefix = '[TORCH_LIB INFO]'
