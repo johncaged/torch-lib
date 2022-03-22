@@ -1,10 +1,10 @@
-from torch_lib.utils import Base, NOTHING, MultiConst, is_nothing
+from torch_lib.util import Base, NOTHING, MultiConst, is_nothing
 from torch.nn import Module
 from torch import device
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
-from torch_lib.utils.type import NUMBER
-from typing import Any, Sequence, Union, Dict, Tuple, Type
+from torch_lib.util.type import NUMBER
+from typing import Any, Sequence, Union, Dict, Tuple
 from torch_lib.log import logger
 from abc import abstractmethod
 
@@ -88,32 +88,33 @@ class BuildContext(TempContext):
     
     def initialize(self):
         # batch handlers that define the process of training, evaluating and predicting.
-        from torch_lib.core.handler import BatchHandler
-        self.train: BatchHandler = NOTHING
-        self.eval: BatchHandler = NOTHING
-        self.predict: BatchHandler = NOTHING
+        from torch_lib.core.handler import HandlerContainer
+        self.train: HandlerContainer = NOTHING
+        self.eval: HandlerContainer = NOTHING
+        self.predict: HandlerContainer = NOTHING
         
         # optimizer
         self.optimizer: Optimizer = NOTHING
         # loss_func
-        self.loss_func: Module = NOTHING
+        self.loss: Module = NOTHING
         # learning rate
-        self.learning_rate: NUMBER = NOTHING
+        self.lr: NUMBER = NOTHING
         # learning rate decay
         self.lr_decay: Any = NOTHING
         # data provider
-        from torch_lib.callback.dataset import DataProvider
+        from torch_lib.data import DataProvider
         self.train_provider: DataProvider = NOTHING
         self.eval_provider: DataProvider = NOTHING
         # data parser
-        from torch_lib.callback.dataset import DataParser
-        self.data_parser: DataParser = NOTHING
+        from torch_lib.data import DataParser, IndexParser
+        # the data parser should be set to IndexParser as default
+        self.data_parser: DataParser = IndexParser()
         # run callback executor
-        from torch_lib.callback.run import RunCallbackExecutor
-        self.run_callback_exec: RunCallbackExecutor = NOTHING
-        # metric callback executor
-        from torch_lib.callback.metrics import MetricCallbackExecutor
-        self.metric_callback_exec: MetricCallbackExecutor = NOTHING
+        from torch_lib.callback import CallbackContainer
+        self.callbacks: CallbackContainer = NOTHING
+        # metric container
+        from torch_lib.metric import MetricContainer
+        self.metrics: MetricContainer = NOTHING
 
 
 class HandlerContext(TempContext):
@@ -124,10 +125,10 @@ class HandlerContext(TempContext):
     def initialize(self):
         import torch_lib.core.handler as handler
         # handler class
-        self.Batch = handler.BatchHandler
+        self.Container = handler.HandlerContainer
         self.EpochIteration = handler.EpochIterationHandler
         self.Iteration = handler.IterationHandler
-        self.Core = handler.CoreHandler
+        self.Handler = handler.Handler
         self.Forward = handler.ForwardHandler
         self.Loss = handler.LossHandler
         self.Backward = handler.BackwardHandler

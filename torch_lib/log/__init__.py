@@ -1,4 +1,4 @@
-from torch_lib.utils import Singleton
+from torch_lib.util import Singleton
 
 
 color_dict = {

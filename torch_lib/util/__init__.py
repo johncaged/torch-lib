@@ -1,6 +1,7 @@
 # TODO: refactor the utils package
 from typing import Dict, Union, Tuple, Sequence
-from torch_lib.utils.type import T_M_SEQ, T_M
+from collections.abc import Iterator
+from torch_lib.util.type import T_M_SEQ, T_M
 from torch import Tensor
 from torch.nn import Module
 import threading
@@ -418,54 +419,67 @@ def MethodChaining(func):
 
 class Iter:
 
-    def __init__(self):
-        super().__init__()
-        self._iter_start = 0
-        # the subclasses have to rewrite the __len__ method
-        self._iter_end = self.__len__()
+    def __init__(self, _iterable):
+        # iterable item
+        self._iterable = _iterable
+        # iterator
+        self._iterator = None
 
     def __iter__(self):
-        # reset _iter_start to 0
-        self._iter_start = 0
+        # get iterator
+        self._iterator = iter(self._iterable)
         return self
 
     def __next__(self):
-        if self._iter_start < self._iter_end:
-            # the subclasses have to rewrite the __getitem__ method
-            item = self[self._iter_start]
-            self._iter_start += 1
-            return item
+        if isinstance(self._iterator, Iterator):
+            # get next
+            return next(self._iterator)
         else:
             raise StopIteration
 
 
 class IterTool(Iter):
 
-    def __init__(self, arr, progress=False, time=False, index=False, total=False):
-        self.arr = arr
-        # 'super' method should be after the self.arr is assigned.
-        super().__init__()
+    def __init__(self, _iterable, progress=False, time=False, index=False, total=False):
+        super().__init__(_iterable)
+        # iteration index
+        self._index = 0
+        # additional information in iteration
         self.items = [progress, time, index, total]
         self.func_set = [self.progress, self.time, self.index, self.total]
 
-    def __getitem__(self, key):
+    def __iter__(self):
+        super().__iter__()
+        # set index to 0
+        self._index = 0
+        return self
+
+    def __next__(self):
+        # get the next item
+        item = super().__next__()
+        # get needed information indexes
         indexes = [index for index, value in enumerate(self.items) if value is True]
         # func set result
         func_set_res = [func() for func in list_take(self.func_set, indexes)]
-        item = self.arr[key]
+        # index increases by 1(this should be done after the current index is accessed)
+        self._index += 1
         return item if len(func_set_res) == 0 else (item, *func_set_res)
 
     def __len__(self):
-        return len(self.arr)
+        try:
+            return len(self._iterable)
+        except Exception:
+            logger.error('The iterable item has no __len__.')
+            return 0
 
     def progress(self):
-        return self._iter_start, self.__len__()
+        return self._index, self.__len__()
 
     def time(self):
         return time()
 
     def index(self):
-        return self._iter_start
+        return self._index
 
     def total(self):
         return self.__len__()

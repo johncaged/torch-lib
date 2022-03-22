@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from typing import List, Sequence, Union
-from torch_lib.utils import AddAccessFilter, AccessFilter, ListAccessFilter, MultiConst, IterTool, NOTHING, type_cast, InvocationDebug
+from torch_lib.util import AddAccessFilter, AccessFilter, ListAccessFilter, MultiConst, IterTool, NOTHING, type_cast, InvocationDebug
 from torch_lib.context import Context
 from functools import wraps
 from torch import set_grad_enabled
@@ -25,7 +25,7 @@ def TorchGrad(func):
     return grad_switch
 
 
-class CoreHandler:
+class Handler:
 
     def __init__(self):
         super().__init__()
@@ -39,17 +39,17 @@ class CoreHandler:
 
 
 # core handler or sequence of core handlers
-C_SEQ = Union[CoreHandler, Sequence[CoreHandler]]
+C_SEQ = Union[Handler, Sequence[Handler]]
 
 
 @AddAccessFilter(ListAccessFilter('handlers'))
 @AccessFilter
-class BatchHandler(CoreHandler):
+class HandlerContainer(Handler):
 
     handlers = MultiConst()
     def __init__(self, handlers: C_SEQ = None):
         super().__init__()
-        self.handlers: List[CoreHandler] = []
+        self.handlers: List[Handler] = []
         if handlers is not None:
             self.extend(handlers)
     
@@ -58,7 +58,7 @@ class BatchHandler(CoreHandler):
             handler(ctx)
 
 
-class EpochIterationHandler(BatchHandler):
+class EpochIterationHandler(HandlerContainer):
 
     def __init__(self, handlers: C_SEQ = None):
         super().__init__(handlers)
@@ -77,7 +77,7 @@ class EpochIterationHandler(BatchHandler):
         return super().__call__(ctx)
 
 
-class IterationHandler(BatchHandler):
+class IterationHandler(HandlerContainer):
 
     def __init__(self, handlers: C_SEQ = None):
         super().__init__(handlers)
@@ -102,7 +102,7 @@ class IterationHandler(BatchHandler):
         return super().__call__(ctx)
 
 
-class ForwardHandler(CoreHandler):
+class ForwardHandler(Handler):
     
     def __init__(self):
         super().__init__()
@@ -133,28 +133,28 @@ class ForwardHandler(CoreHandler):
         return super().__call__(ctx)
 
 
-class LossHandler(CoreHandler):
+class LossHandler(Handler):
 
     def __init__(self):
         super().__init__()
     
     def handle(self, ctx: Context):
         # compute loss
-        loss = ctx.build.loss_func(ctx.step.y_pred, ctx.step.y_true)
+        loss = ctx.build.loss(ctx.step.y_pred, ctx.step.y_true)
         ctx.step.loss = loss
 
     @InvocationDebug('LossHandler')
     def __call__(self, ctx: Context):
         # context check
         ctx.check([
-            'build.loss_func',
+            'build.loss',
             'step.y_pred',
             'step.y_true'
         ])
         return super().__call__(ctx)
 
 
-class BackwardHandler(CoreHandler):
+class BackwardHandler(Handler):
 
     def __init__(self):
         super().__init__()
@@ -175,25 +175,25 @@ class BackwardHandler(CoreHandler):
         return super().__call__(ctx)
 
 
-class MetricsHandler(CoreHandler):
+class MetricsHandler(Handler):
 
     def __init__(self):
         super().__init__()
     
     def handle(self, ctx: Context):
-        ctx.step.metrics = ctx.build.metric_callback_exec(ctx)
+        ctx.step.metrics = ctx.build.metrics(ctx)
 
     @InvocationDebug('MetricsHandler')
     def __call__(self, ctx: Context):
         # context check
         ctx.check([
-            'build.metric_callback_exec',
+            'build.metrics',
             'step'
         ])
         return super().__call__(ctx)
 
 
-class DisplayHandler(CoreHandler):
+class DisplayHandler(Handler):
 
     def __init__(self):
         super().__init__()
@@ -205,7 +205,7 @@ class DisplayHandler(CoreHandler):
         return super().handle(ctx)
 
 
-class DatasetHandler(CoreHandler):
+class DatasetHandler(Handler):
 
     def __init__(self):
         super().__init__()
@@ -224,7 +224,7 @@ class DatasetHandler(CoreHandler):
         return super().__call__(ctx)
 
 
-class ModeHandler(CoreHandler):
+class ModeHandler(Handler):
 
     def __init__(self, mode: str = 'train'):
         super().__init__()
@@ -247,13 +247,13 @@ class ModeHandler(CoreHandler):
 
 
 # run callback adapters
-class BeginHandler(CoreHandler):
+class BeginHandler(Handler):
     
     def __init__(self):
         super().__init__()
 
     def handle(self, ctx: Context):
-        ctx.build.run_callback_exec.begin(ctx)
+        ctx.build.callbacks.begin(ctx)
 
     @InvocationDebug('BeginHandler')
     def __call__(self, ctx: Context):
@@ -264,13 +264,13 @@ class BeginHandler(CoreHandler):
         return super().__call__(ctx)
 
 
-class EndHandler(CoreHandler):
+class EndHandler(Handler):
 
     def __init__(self):
         super().__init__()
     
     def handle(self, ctx: Context):
-        ctx.build.run_callback_exec.end(ctx)
+        ctx.build.callbacks.end(ctx)
     
     @InvocationDebug('EndHandler')
     def __call__(self, ctx: Context):
@@ -281,13 +281,13 @@ class EndHandler(CoreHandler):
         return super().__call__(ctx)
 
 
-class StepBeginHandler(CoreHandler):
+class StepBeginHandler(Handler):
 
     def __init__(self):
         super().__init__()
     
     def handle(self, ctx: Context):
-        ctx.build.run_callback_exec.step_begin(ctx)
+        ctx.build.callbacks.step_begin(ctx)
     
     @InvocationDebug('StepBeginHandler')
     def __call__(self, ctx: Context):
@@ -298,13 +298,13 @@ class StepBeginHandler(CoreHandler):
         return super().__call__(ctx)
 
 
-class StepEndHandler(CoreHandler):
+class StepEndHandler(Handler):
 
     def __init__(self):
         super().__init__()
     
     def handle(self, ctx: Context):
-        ctx.build.run_callback_exec.step_end(ctx)
+        ctx.build.callbacks.step_end(ctx)
     
     @InvocationDebug('StepEndHandler')
     def __call__(self, ctx: Context):
@@ -315,13 +315,13 @@ class StepEndHandler(CoreHandler):
         return super().__call__(ctx)
 
 
-class EpochBeginHandler(CoreHandler):
+class EpochBeginHandler(Handler):
 
     def __init__(self):
         super().__init__()
     
     def handle(self, ctx: Context):
-        ctx.build.run_callback_exec.epoch_begin(ctx)
+        ctx.build.callbacks.epoch_begin(ctx)
     
     @InvocationDebug('EpochBeginHandler')
     def __call__(self, ctx: Context):
@@ -332,13 +332,13 @@ class EpochBeginHandler(CoreHandler):
         return super().__call__(ctx)
 
 
-class EpochEndHandler(CoreHandler):
+class EpochEndHandler(Handler):
 
     def __init__(self):
         super().__init__()
     
     def handle(self, ctx: Context):
-        ctx.build.run_callback_exec.epoch_end(ctx)
+        ctx.build.callbacks.epoch_end(ctx)
     
     @InvocationDebug('EpochEndHandler')
     def __call__(self, ctx: Context):

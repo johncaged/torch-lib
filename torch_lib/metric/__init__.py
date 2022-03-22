@@ -1,12 +1,11 @@
 from abc import abstractmethod
 from typing import Union, Dict, List, Sequence
-from torch_lib.utils.type import NUMBER, NUMBER_T
-from torch_lib.utils import Count, Nothing, MultiConst, AccessFilter, AddAccessFilter, ListAccessFilter, is_nothing, dict_merge, NOTHING
-from torch_lib.callback import Callback
+from torch_lib.util.type import NUMBER, NUMBER_T
+from torch_lib.util import Count, Nothing, MultiConst, AccessFilter, AddAccessFilter, ListAccessFilter, is_nothing, dict_merge, NOTHING
 from torch_lib.context import Context
 
 
-class MetricCallback(Callback):
+class Metric():
 
     count = Count()
     def __init__(self, name: str = None):
@@ -29,25 +28,25 @@ class MetricCallback(Callback):
 
 
 # metric callback or sequence of metric callbacks
-M_SEQ = Union[MetricCallback, Sequence[MetricCallback]]
+M_SEQ = Union[Metric, Sequence[Metric]]
 
 
-@AddAccessFilter(ListAccessFilter('metric_callbacks'))
+@AddAccessFilter(ListAccessFilter('metrics'))
 @AccessFilter
-class MetricCallbackExecutor(MetricCallback):
+class MetricContainer(Metric):
 
-    metric_callbacks = MultiConst()
-    def __init__(self, metric_callbacks: M_SEQ = None):
+    metrics = MultiConst()
+    def __init__(self, metrics: M_SEQ = None):
         super().__init__()
-        self.metric_callbacks: List[MetricCallback] = []
+        self.metrics: List[Metric] = []
         # add metric callbacks to the list
-        if metric_callbacks is not None:
-            self.extend(metric_callbacks)
+        if metrics is not None:
+            self.extend(metrics)
 
     def get(self, ctx: Context) -> Union[Dict, NUMBER]:
         result = {}
-        for metric_callback in self.metric_callbacks:
-            _res = metric_callback(ctx)
+        for metric in self.metrics:
+            _res = metric(ctx)
             # is not Nothing
             if is_nothing(_res) is False:
                 dict_merge(result, _res)

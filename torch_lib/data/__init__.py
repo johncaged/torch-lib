@@ -1,12 +1,11 @@
 from abc import abstractmethod
 from torch.utils.data import DataLoader
 from torch_lib.context import Context
-from torch_lib.callback import Callback
-from torch_lib.utils import list_take
+from torch_lib.util import list_take
 from typing import Sequence, Tuple, Any, Union
 
 
-class DataProvider(Callback):
+class DataProvider:
 
     def __init__(self):
         pass
@@ -19,17 +18,17 @@ class DataProvider(Callback):
         return self.get(ctx)
 
 
-class ConstantDataProvider(DataProvider):
+class ConstantProvider(DataProvider):
 
     def __init__(self, dataset: DataLoader):
         super().__init__()
         self.dataset = dataset
 
-    def get(self, ctx: Context):
+    def get(self, _) -> DataLoader:
         return self.dataset
 
 
-class DataParser(Callback):
+class DataParser:
 
     def __init__(self):
         pass

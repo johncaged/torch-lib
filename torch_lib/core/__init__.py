@@ -1,9 +1,9 @@
 from typing import Any, Dict, Optional, Union, TypeVar
-from torch_lib.callback.dataset import ConstantDataProvider, DataParser, DataProvider
-from torch_lib.callback.metrics import M_SEQ, MetricCallbackExecutor
-from torch_lib.callback.run import R_SEQ, RunCallbackExecutor
-from torch_lib.utils import NOTHING, MultiConst, get_device, type_cast, MethodChaining, InvocationDebug, is_nothing, logger
-from torch_lib.utils.type import NUMBER
+from torch_lib.data import ConstantProvider, DataParser, DataProvider, IndexParser
+from torch_lib.metric import M_SEQ, MetricContainer
+from torch_lib.callback import C_SEQ, CallbackContainer
+from torch_lib.util import NOTHING, MultiConst, get_device, type_cast, MethodChaining, InvocationDebug, is_nothing, logger
+from torch_lib.util.type import NUMBER
 from torch_lib.context import Context
 from torch.utils.data import DataLoader
 from torch.nn import Module
@@ -33,11 +33,11 @@ class ModelProxy:
         train_dataset: DATASET,
         total_epochs: int = 1,
         eval_dataset: DATASET = NOTHING,
-        run_callbacks: R_SEQ = NOTHING,
+        callbacks: C_SEQ = NOTHING,
         log_option = None  # TODO: log system design
     ):
         self._build_total_epochs(total_epochs)
-        self._build_run_callback_exec(run_callbacks)
+        self._build_callbacks(callbacks)
         self._build_dataset(train_dataset, 'train')
         self._build_dataset(eval_dataset, 'eval')
         self.ctx.build.train(self.ctx)
@@ -46,10 +46,10 @@ class ModelProxy:
     def predict(
         self,
         dataset: DATASET,
-        run_callbacks: R_SEQ = NOTHING,
+        callbacks: C_SEQ = NOTHING,
         log_option = None  # TODO: log system design
     ):
-        self._build_run_callback_exec(run_callbacks)
+        self._build_callbacks(callbacks)
         self._build_dataset(dataset, 'eval')
         self.ctx.build.predict(self.ctx)
 
@@ -57,10 +57,10 @@ class ModelProxy:
     def eval(
         self,
         dataset: DATASET,
-        run_callbacks: R_SEQ = NOTHING,
+        callbacks: C_SEQ = NOTHING,
         log_option = None  # TODO: log system design
     ):
-        self._build_run_callback_exec(run_callbacks)
+        self._build_callbacks(callbacks)
         self._build_dataset(dataset, 'eval')
         self.ctx.build.eval(self.ctx)
 
@@ -72,19 +72,19 @@ class ModelProxy:
     @MethodChaining
     def build(
         self,
-        loss_func = None,
-        metric_callbacks: M_SEQ = None,
+        loss = None,
+        metrics: M_SEQ = None,
         optimizer: Union[str, Optimizer] = None,
-        learning_rate: NUMBER = None,
+        lr: NUMBER = None,
         lr_decay: Any = None,
         optimizer_options: Optional[Dict] = None,
         lr_decay_options: Optional[Dict] = None,
         data_parser: Optional[DataParser] = None
     ) -> MP:
-        self._build_loss(loss_func)
-        self._build_metric_callback_exec(metric_callbacks)
+        self._build_loss(loss)
+        self._build_metrics(metrics)
         self._build_data_parser(data_parser)
-        self._build_optimizer(optimizer, learning_rate, optimizer_options)
+        self._build_optimizer(optimizer, lr, optimizer_options)
         self._build_lr_decay(lr_decay, lr_decay_options)
 
     @InvocationDebug('ModelProxy.TrainBuilder')
@@ -93,7 +93,7 @@ class ModelProxy:
         # get handler classes from context
         handler = self.ctx.handler
         # build training process using handlers
-        self.ctx.build.train = handler.Batch([
+        self.ctx.build.train = handler.Container([
             # begin callback
             handler.Begin(),
             # epoch iter
@@ -147,7 +147,7 @@ class ModelProxy:
         # get handler classes from context
         handler = self.ctx.handler
         # build predicting process using handlers
-        self.ctx.build.predict = handler.Batch([
+        self.ctx.build.predict = handler.Container([
             # begin callback
             handler.Begin(),
             # set mode to 'eval'
@@ -175,7 +175,7 @@ class ModelProxy:
         # get handler classes from context
         handler = self.ctx.handler
         # build evaluating process using handlers
-        self.ctx.build.eval = handler.Batch([
+        self.ctx.build.eval = handler.Container([
             # begin callback
             handler.Begin(),
             # set mode to 'eval'
@@ -202,27 +202,27 @@ class ModelProxy:
         ])
 
     @InvocationDebug('ModelProxy._build_loss')
-    def _build_loss(self, loss_func):
-        if loss_func is not None:
-            self.ctx.build.loss_func = loss_func if is_nothing(loss_func) is False else NOTHING
+    def _build_loss(self, loss):
+        if loss is not None:
+            self.ctx.build.loss = loss if is_nothing(loss) is False else NOTHING
 
     @InvocationDebug('ModelProxy._build_metric_callback_exec')
-    def _build_metric_callback_exec(self, metric_callbacks):
-        if metric_callbacks is not None:
-            self.ctx.build.metric_callback_exec = MetricCallbackExecutor(metric_callbacks) if is_nothing(metric_callbacks) is False else NOTHING
+    def _build_metrics(self, metrics):
+        if metrics is not None:
+            self.ctx.build.metrics = MetricContainer(metrics) if is_nothing(metrics) is False else NOTHING
 
     @InvocationDebug('ModelProxy._build_data_parser')
     def _build_data_parser(self, data_parser):
         if data_parser is not None:
-            self.ctx.build.data_parser = data_parser if is_nothing(data_parser) is False else NOTHING
+            self.ctx.build.data_parser = data_parser if is_nothing(data_parser) is False else IndexParser()
 
     @InvocationDebug('ModelProxy._build_run_callback_exec')
-    def _build_run_callback_exec(self, run_callbacks):
-        if run_callbacks is not None:
-            self.ctx.build.run_callback_exec = RunCallbackExecutor(run_callbacks) if is_nothing(run_callbacks) is False else NOTHING
+    def _build_callbacks(self, callbacks):
+        if callbacks is not None:
+            self.ctx.build.callbacks = CallbackContainer(callbacks) if is_nothing(callbacks) is False else NOTHING
 
     @InvocationDebug('ModelProxy._build_optimizer')
-    def _build_optimizer(self, optimizer, learning_rate, optimizer_options):
+    def _build_optimizer(self, optimizer, lr, optimizer_options):
         if optimizer is not None:
             if isinstance(optimizer, Optimizer):
                 self.ctx.build.optimizer = optimizer
@@ -241,7 +241,7 @@ class ModelProxy:
             if is_nothing(dataset):
                 dataset = NOTHING
             else:
-                dataset = dataset if isinstance(dataset, DataProvider) else ConstantDataProvider(dataset)
+                dataset = dataset if isinstance(dataset, DataProvider) else ConstantProvider(dataset)
 
             if mode == 'train':
                 self.ctx.build.train_provider = dataset
