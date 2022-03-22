@@ -40,7 +40,7 @@ class ModelProxy:
         self._build_callbacks(callbacks)
         self._build_dataset(train_dataset, 'train')
         self._build_dataset(eval_dataset, 'eval')
-        self.ctx.build.train(self.ctx)
+        self.ctx.build.train.handle(self.ctx)
 
     @InvocationDebug('ModelProxy.Predict')
     def predict(
@@ -51,7 +51,7 @@ class ModelProxy:
     ):
         self._build_callbacks(callbacks)
         self._build_dataset(dataset, 'eval')
-        self.ctx.build.predict(self.ctx)
+        self.ctx.build.predict.handle(self.ctx)
 
     @InvocationDebug('ModelProxy.Eval')
     def eval(
@@ -62,7 +62,7 @@ class ModelProxy:
     ):
         self._build_callbacks(callbacks)
         self._build_dataset(dataset, 'eval')
-        self.ctx.build.eval(self.ctx)
+        self.ctx.build.eval.handle(self.ctx)
 
     @InvocationDebug('ModelProxy.Summary')
     def summary(self):

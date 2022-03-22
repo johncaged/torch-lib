@@ -2,15 +2,9 @@ from abc import abstractmethod
 from typing import List, Sequence, Union
 from torch_lib.util import AddAccessFilter, AccessFilter, ListAccessFilter, MultiConst, IterTool, NOTHING, type_cast, InvocationDebug
 from torch_lib.context import Context
+from torch_lib.log import logger
 from functools import wraps
 from torch import set_grad_enabled
-
-
-_mode_all = ['train', 'eval']
-provider_dict = {
-    'train': 'train_provider',
-    'eval': 'eval_provider'
-}
 
 
 def TorchGrad(func):
@@ -33,9 +27,6 @@ class Handler:
     @abstractmethod
     def handle(self, ctx: Context):
         pass
-
-    def __call__(self, ctx: Context):
-        return self.handle(ctx)
 
 
 # core handler or sequence of core handlers
@@ -63,18 +54,15 @@ class EpochIterationHandler(HandlerContainer):
     def __init__(self, handlers: C_SEQ = None):
         super().__init__(handlers)
 
+    @InvocationDebug('EpochIterationHandler')
     def handle(self, ctx: Context):
+        # context check
+        ctx.check('epoch.total', silent=False)
         # epoch loops
         for current in range(ctx.epoch.total):
             # set current epoch to the context
             ctx.epoch.current = current
             super().handle(ctx)
-
-    @InvocationDebug('EpochIterationHandler')
-    def __call__(self, ctx: Context):
-        # context check
-        ctx.check('epoch.total', silent=False)
-        return super().__call__(ctx)
 
 
 class IterationHandler(HandlerContainer):
@@ -82,8 +70,11 @@ class IterationHandler(HandlerContainer):
     def __init__(self, handlers: C_SEQ = None):
         super().__init__(handlers)
 
+    @InvocationDebug('IterationHandler')
     @TorchGrad
     def handle(self, ctx: Context):
+        # context check
+        ctx.check('dataset', silent=False)
         for item, progress, time, current, total in IterTool(ctx.dataset, True, True, True, True):
             ctx.step.from_dict({
                 'item': item, # original batch data of the dataset
@@ -95,21 +86,23 @@ class IterationHandler(HandlerContainer):
             # carry out the subsequent actions
             super().handle(ctx)
 
-    @InvocationDebug('IterationHandler')
-    def __call__(self, ctx: Context):
-        # context check
-        ctx.check('dataset', silent=False)
-        return super().__call__(ctx)
-
 
 class ForwardHandler(Handler):
     
     def __init__(self):
         super().__init__()
 
+    @InvocationDebug('ForwardHandler')
     def handle(self, ctx: Context):
+        # context check
+        ctx.check([
+            'model',
+            'device',
+            'build.data_parser',
+            'step'
+        ], silent=False)
         # forward
-        x, y_true, extra = ctx.build.data_parser(ctx)
+        x, y_true, extra = ctx.build.data_parser.obtain(ctx)
         y_pred = ctx.model(type_cast(x, ctx.device))
         y_true = type_cast(y_true, ctx.device)
         # clone and update context info
@@ -121,23 +114,13 @@ class ForwardHandler(Handler):
             'extra': extra
         })
 
-    @InvocationDebug('ForwardHandler')
-    def __call__(self, ctx: Context):
-        # context check
-        ctx.check([
-            'model',
-            'device',
-            'build.data_parser',
-            'step'
-        ], silent=False)
-        return super().__call__(ctx)
-
 
 class LossHandler(Handler):
 
     def __init__(self):
         super().__init__()
     
+    @InvocationDebug('LossHandler')
     def handle(self, ctx: Context):
         # context check
         if ctx.check('build.loss') is True:
@@ -145,30 +128,23 @@ class LossHandler(Handler):
             loss = ctx.build.loss(ctx.step.y_pred, ctx.step.y_true)
             ctx.step.loss = loss
 
-    @InvocationDebug('LossHandler')
-    def __call__(self, ctx: Context):
-        return super().__call__(ctx)
-
 
 class BackwardHandler(Handler):
 
     def __init__(self):
         super().__init__()
 
-    def handle(self, ctx: Context):
-        # backward
-        ctx.build.optimizer.zero_grad()
-        ctx.step.loss.backward()
-        ctx.build.optimizer.step()
-
     @InvocationDebug('BackwardHandler')
-    def __call__(self, ctx: Context):
+    def handle(self, ctx: Context):
         # context check
         ctx.check([
             'step.loss',
             'build.optimizer'
         ], silent=False)
-        return super().__call__(ctx)
+        # backward
+        ctx.build.optimizer.zero_grad()
+        ctx.step.loss.backward()
+        ctx.build.optimizer.step()
 
 
 class MetricsHandler(Handler):
@@ -176,15 +152,34 @@ class MetricsHandler(Handler):
     def __init__(self):
         super().__init__()
     
-    def handle(self, ctx: Context):
-        if ctx.check('build.metrics') is True:
-            ctx.step.metrics = ctx.build.metrics(ctx)
-
     @InvocationDebug('MetricsHandler')
-    def __call__(self, ctx: Context):
+    def handle(self, ctx: Context):
         # context check
         ctx.check('step', silent=False)
-        return super().__call__(ctx)
+        if ctx.check('build.metrics') is True:
+            ctx.step.metrics = ctx.build.metrics.obtain(ctx)
+
+
+class AverageHandler(Handler):
+
+    def __init__(self, type: str = 'avg'):
+        super().__init__()
+        type_supported = ['avg', 'clear']
+        if type not in type_supported:
+            logger.warn('An unsupported average handler type is set.')
+        self.type = type
+    
+    def handle(self, ctx: Context):
+        if self.type == 'avg':
+            self.average(ctx)
+        elif self.type == 'clear':
+            self.clear(ctx)
+
+    def average(self, ctx: Context):
+        pass
+
+    def clear(self, ctx: Context):
+        pass
 
 
 class DisplayHandler(Handler):
@@ -204,58 +199,54 @@ class DatasetHandler(Handler):
     def __init__(self):
         super().__init__()
     
-    def handle(self, ctx: Context):
-        # get dataset through mode
-        ctx.dataset = ctx.build[provider_dict.get(ctx.mode, NOTHING)](ctx)
-
     @InvocationDebug('DatasetHandler')
-    def __call__(self, ctx: Context):
+    def handle(self, ctx: Context):
         # context check
-        ctx.check([
-            'build',
-            'mode'
-        ], silent=False)
-        return super().__call__(ctx)
+        ctx.check('mode', silent=False)
+        # get dataset through mode
+        if ctx.mode == 'train':
+            ctx.check('build.train_provider', silent=False)
+            ctx.dataset = ctx.build.train_provider.obtain(ctx)
+        elif ctx.mode == 'eval':
+            ctx.check('build.eval_provider', silent=False)
+            ctx.dataset = ctx.build.eval_provider.obtain(ctx)
 
 
 class ModeHandler(Handler):
 
     def __init__(self, mode: str = 'train'):
         super().__init__()
-        assert mode in _mode_all
+        # only two modes are supported
+        mode_supported = ['train', 'eval']
+        if mode not in mode_supported:
+            logger.warn('An unsupported mode is set, this may cause some problems.')
         self.mode = mode
     
-    def handle(self, ctx: Context):
-        # set mode to the context
-        ctx.mode = self.mode
-        # change model mode to self.mode
-        getattr(ctx.model, self.mode, NOTHING)()
-
     @InvocationDebug('ModeHandler')
-    def __call__(self, ctx: Context):
+    def handle(self, ctx: Context):
         # context check
         ctx.check([
             'model'
         ], silent=False)
-        return super().__call__(ctx)
+        # set mode to the context
+        ctx.mode = self.mode
+        # change pytorch model mode to self.mode
+        getattr(ctx.model, self.mode, NOTHING)()
 
 
-# run callback adapters
+# callback adapters
 class BeginHandler(Handler):
     
     def __init__(self):
         super().__init__()
 
-    def handle(self, ctx: Context):
-        ctx.build.callbacks.begin(ctx)
-
     @InvocationDebug('BeginHandler')
-    def __call__(self, ctx: Context):
+    def handle(self, ctx: Context):
         # context check
         ctx.check([
             'build.callbacks'
         ])
-        return super().__call__(ctx)
+        ctx.build.callbacks.begin(ctx)
 
 
 class EndHandler(Handler):
@@ -263,16 +254,13 @@ class EndHandler(Handler):
     def __init__(self):
         super().__init__()
     
-    def handle(self, ctx: Context):
-        ctx.build.callbacks.end(ctx)
-    
     @InvocationDebug('EndHandler')
-    def __call__(self, ctx: Context):
+    def handle(self, ctx: Context):
         # context check
         ctx.check([
             'build.callbacks'
         ])
-        return super().__call__(ctx)
+        ctx.build.callbacks.end(ctx)
 
 
 class StepBeginHandler(Handler):
@@ -280,16 +268,13 @@ class StepBeginHandler(Handler):
     def __init__(self):
         super().__init__()
     
-    def handle(self, ctx: Context):
-        ctx.build.callbacks.step_begin(ctx)
-    
     @InvocationDebug('StepBeginHandler')
-    def __call__(self, ctx: Context):
+    def handle(self, ctx: Context):
         # context check
         ctx.check([
             'build.callbacks'
         ])
-        return super().__call__(ctx)
+        ctx.build.callbacks.step_begin(ctx)
 
 
 class StepEndHandler(Handler):
@@ -297,16 +282,13 @@ class StepEndHandler(Handler):
     def __init__(self):
         super().__init__()
     
-    def handle(self, ctx: Context):
-        ctx.build.callbacks.step_end(ctx)
-    
     @InvocationDebug('StepEndHandler')
-    def __call__(self, ctx: Context):
+    def handle(self, ctx: Context):
         # context check
         ctx.check([
             'build.callbacks'
         ])
-        return super().__call__(ctx)
+        ctx.build.callbacks.step_end(ctx)
 
 
 class EpochBeginHandler(Handler):
@@ -314,16 +296,13 @@ class EpochBeginHandler(Handler):
     def __init__(self):
         super().__init__()
     
-    def handle(self, ctx: Context):
-        ctx.build.callbacks.epoch_begin(ctx)
-    
     @InvocationDebug('EpochBeginHandler')
-    def __call__(self, ctx: Context):
+    def handle(self, ctx: Context):
         # context check
         ctx.check([
             'build.callbacks'
         ])
-        return super().__call__(ctx)
+        ctx.build.callbacks.epoch_begin(ctx)
 
 
 class EpochEndHandler(Handler):
@@ -331,13 +310,10 @@ class EpochEndHandler(Handler):
     def __init__(self):
         super().__init__()
     
-    def handle(self, ctx: Context):
-        ctx.build.callbacks.epoch_end(ctx)
-    
     @InvocationDebug('EpochEndHandler')
-    def __call__(self, ctx: Context):
+    def handle(self, ctx: Context):
         # context check
         ctx.check([
             'build.callbacks'
         ])
-        return super().__call__(ctx)
+        ctx.build.callbacks.epoch_end(ctx)

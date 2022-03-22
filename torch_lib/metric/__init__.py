@@ -15,7 +15,7 @@ class Metric():
     def get(self, ctx: Context) -> Union[Dict, NUMBER]:
         pass
 
-    def __call__(self, ctx: Context) -> Union[Dict, Nothing]:
+    def obtain(self, ctx: Context) -> Union[Dict, Nothing]:
         result = self.get(ctx)
         if isinstance(result, Dict):
             return result
