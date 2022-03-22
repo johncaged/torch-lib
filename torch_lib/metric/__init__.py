@@ -49,5 +49,6 @@ class MetricContainer(Metric):
             _res = metric(ctx)
             # is not Nothing
             if is_nothing(_res) is False:
-                dict_merge(result, _res)
+                # TODO: change the dict merge operation
+                result = dict_merge(result, _res)
         return result

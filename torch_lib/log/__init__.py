@@ -32,7 +32,7 @@ class Logger:
             'info': True,
             'warn': True,
             'error': True,
-            'debug': True
+            'debug': False
         }
 
     def info(self, *args):

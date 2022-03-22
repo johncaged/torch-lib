@@ -1,4 +1,4 @@
-from torch_lib.util import Base, NOTHING, MultiConst, is_nothing
+from torch_lib.util import Base, NOTHING, MultiConst
 from torch.nn import Module
 from torch import device
 from torch.optim.optimizer import Optimizer
@@ -177,20 +177,24 @@ class Context(Base):
         # handler context
         self.handler: HandlerContext = HandlerContext()
 
-    def check(self, items: Union[str, Sequence[str]]):
+    def check(self, items: Union[str, Sequence[str]], silent: bool = True):
+        # check single item
         def _check(_item):
             _result = super(Context, self).check(_item)
-            if is_nothing(_result):
-                logger.warn(
-                    'Context check failed: got NOTHING with key \'%s\'.' % _item
-                )
+            if _result is False:
+                msg = 'Context check failed: got NOTHING with key \'%s\'.' % _item
+                if silent is True:
+                    logger.debug(msg)
+                else:
+                    logger.warn(msg)
             return _result
 
-        result = NOTHING
         if isinstance(items, (list, tuple)):
             # sequence value
-            result = tuple(_check(item) for item in items)
+            for item in items:
+                if _check(str(item)) is False:
+                    return False
+            return True
         else:
             # single value
-            result = _check(str(items))
-        return result
+            return _check(str(items))

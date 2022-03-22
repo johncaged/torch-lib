@@ -73,7 +73,7 @@ class EpochIterationHandler(HandlerContainer):
     @InvocationDebug('EpochIterationHandler')
     def __call__(self, ctx: Context):
         # context check
-        ctx.check(['epoch.total'])
+        ctx.check('epoch.total', silent=False)
         return super().__call__(ctx)
 
 
@@ -98,7 +98,7 @@ class IterationHandler(HandlerContainer):
     @InvocationDebug('IterationHandler')
     def __call__(self, ctx: Context):
         # context check
-        ctx.check(['dataset'])
+        ctx.check('dataset', silent=False)
         return super().__call__(ctx)
 
 
@@ -129,7 +129,7 @@ class ForwardHandler(Handler):
             'device',
             'build.data_parser',
             'step'
-        ])
+        ], silent=False)
         return super().__call__(ctx)
 
 
@@ -139,18 +139,14 @@ class LossHandler(Handler):
         super().__init__()
     
     def handle(self, ctx: Context):
-        # compute loss
-        loss = ctx.build.loss(ctx.step.y_pred, ctx.step.y_true)
-        ctx.step.loss = loss
+        # context check
+        if ctx.check('build.loss') is True:
+            # compute loss
+            loss = ctx.build.loss(ctx.step.y_pred, ctx.step.y_true)
+            ctx.step.loss = loss
 
     @InvocationDebug('LossHandler')
     def __call__(self, ctx: Context):
-        # context check
-        ctx.check([
-            'build.loss',
-            'step.y_pred',
-            'step.y_true'
-        ])
         return super().__call__(ctx)
 
 
@@ -171,7 +167,7 @@ class BackwardHandler(Handler):
         ctx.check([
             'step.loss',
             'build.optimizer'
-        ])
+        ], silent=False)
         return super().__call__(ctx)
 
 
@@ -181,15 +177,13 @@ class MetricsHandler(Handler):
         super().__init__()
     
     def handle(self, ctx: Context):
-        ctx.step.metrics = ctx.build.metrics(ctx)
+        if ctx.check('build.metrics') is True:
+            ctx.step.metrics = ctx.build.metrics(ctx)
 
     @InvocationDebug('MetricsHandler')
     def __call__(self, ctx: Context):
         # context check
-        ctx.check([
-            'build.metrics',
-            'step'
-        ])
+        ctx.check('step', silent=False)
         return super().__call__(ctx)
 
 
@@ -220,7 +214,7 @@ class DatasetHandler(Handler):
         ctx.check([
             'build',
             'mode'
-        ])
+        ], silent=False)
         return super().__call__(ctx)
 
 
@@ -242,7 +236,7 @@ class ModeHandler(Handler):
         # context check
         ctx.check([
             'model'
-        ])
+        ], silent=False)
         return super().__call__(ctx)
 
 
@@ -259,7 +253,7 @@ class BeginHandler(Handler):
     def __call__(self, ctx: Context):
         # context check
         ctx.check([
-            'build.run_callback_exec'
+            'build.callbacks'
         ])
         return super().__call__(ctx)
 
@@ -276,7 +270,7 @@ class EndHandler(Handler):
     def __call__(self, ctx: Context):
         # context check
         ctx.check([
-            'build.run_callback_exec'
+            'build.callbacks'
         ])
         return super().__call__(ctx)
 
@@ -293,7 +287,7 @@ class StepBeginHandler(Handler):
     def __call__(self, ctx: Context):
         # context check
         ctx.check([
-            'build.run_callback_exec'
+            'build.callbacks'
         ])
         return super().__call__(ctx)
 
@@ -310,7 +304,7 @@ class StepEndHandler(Handler):
     def __call__(self, ctx: Context):
         # context check
         ctx.check([
-            'build.run_callback_exec'
+            'build.callbacks'
         ])
         return super().__call__(ctx)
 
@@ -327,7 +321,7 @@ class EpochBeginHandler(Handler):
     def __call__(self, ctx: Context):
         # context check
         ctx.check([
-            'build.run_callback_exec'
+            'build.callbacks'
         ])
         return super().__call__(ctx)
 
@@ -344,6 +338,6 @@ class EpochEndHandler(Handler):
     def __call__(self, ctx: Context):
         # context check
         ctx.check([
-            'build.run_callback_exec'
+            'build.callbacks'
         ])
         return super().__call__(ctx)

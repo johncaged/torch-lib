@@ -1,4 +1,4 @@
-# TODO: refactor the utils package
+# TODO: refactor the util package
 from typing import Dict, Union, Tuple, Sequence
 from collections.abc import Iterator
 from torch_lib.util.type import T_M_SEQ, T_M
@@ -138,12 +138,14 @@ class Base:
         for attr in attrs:
             try:
                 temp = temp[attr]
-                # if the value is NOTHING, then return NOTHING directly.
+                # if the value is NOTHING, then return False directly.
                 if is_nothing(temp):
-                    return NOTHING
+                    return False
             except Exception:
-                return self.process_exc()
-        return temp
+                # output error infomation
+                self.process_exc()
+                return False
+        return True
 
     @staticmethod
     def process_exc():
