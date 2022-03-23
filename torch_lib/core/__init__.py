@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional, Union, TypeVar
 from torch_lib.data import ConstantProvider, DataParser, DataProvider, IndexParser
 from torch_lib.metric import M_SEQ, MetricContainer
 from torch_lib.callback import C_SEQ, CallbackContainer
-from torch_lib.util import NOTHING, MultiConst, get_device, type_cast, MethodChaining, InvocationDebug, is_nothing, logger
+from torch_lib.util import NOTHING, MultiConst, get_device, type_cast, MethodChaining, InvocationDebug, check_nothing, logger, is_nothing
 from torch_lib.util.type import NUMBER
 from torch_lib.context import Context
 from torch.utils.data import DataLoader
@@ -20,6 +20,8 @@ class ModelProxy:
     def __init__(self, model, device=None):
         # set context
         self.ctx = Context()
+        # set proxy
+        self.ctx.proxy = self
         # set device
         self.ctx.device = device if device is not None else get_device(model)
         # set model and apply type cast
@@ -104,6 +106,8 @@ class ModelProxy:
                 handler.Mode('train'),
                 # get dataset
                 handler.Dataset(),
+                # clear average metrics
+                handler.Average('clear'),
                 # dataset iter
                 handler.Iteration([
                     # step begin callback
@@ -116,6 +120,8 @@ class ModelProxy:
                     handler.Backward(),
                     # compute metrics
                     handler.Metrics(),
+                    # compute average metrics
+                    handler.Average('avg'),
                     # display in console or in log files
                     handler.Display(),
                     # step end callback
@@ -125,6 +131,8 @@ class ModelProxy:
                 handler.Mode('eval'),
                 # get dataset
                 handler.Dataset(),
+                # clear average metrics
+                handler.Average('clear'),
                 # dataset iter
                 handler.Iteration([
                     # forward
@@ -132,7 +140,11 @@ class ModelProxy:
                     # compute loss
                     handler.Loss(),
                     # metrics
-                    handler.Metrics()
+                    handler.Metrics(),
+                    # compute average metrics
+                    handler.Average('avg'),
+                    # display in console or in log files; TODO: should eval output by step?
+                    handler.Display()
                 ]),
                 # epoch end callback
                 handler.EpochEnd()
@@ -204,22 +216,22 @@ class ModelProxy:
     @InvocationDebug('ModelProxy._build_loss')
     def _build_loss(self, loss):
         if loss is not None:
-            self.ctx.build.loss = loss if is_nothing(loss) is False else NOTHING
+            self.ctx.build.loss = check_nothing(loss, loss)
 
     @InvocationDebug('ModelProxy._build_metric_callback_exec')
     def _build_metrics(self, metrics):
         if metrics is not None:
-            self.ctx.build.metrics = MetricContainer(metrics) if is_nothing(metrics) is False else NOTHING
+            self.ctx.build.metrics = check_nothing(metrics, MetricContainer(metrics))
 
     @InvocationDebug('ModelProxy._build_data_parser')
     def _build_data_parser(self, data_parser):
         if data_parser is not None:
-            self.ctx.build.data_parser = data_parser if is_nothing(data_parser) is False else IndexParser()
+            self.ctx.build.data_parser = check_nothing(data_parser, data_parser, IndexParser())
 
     @InvocationDebug('ModelProxy._build_run_callback_exec')
     def _build_callbacks(self, callbacks):
         if callbacks is not None:
-            self.ctx.build.callbacks = CallbackContainer(callbacks) if is_nothing(callbacks) is False else NOTHING
+            self.ctx.build.callbacks = check_nothing(callbacks, CallbackContainer(callbacks))
 
     @InvocationDebug('ModelProxy._build_optimizer')
     def _build_optimizer(self, optimizer, lr, optimizer_options):

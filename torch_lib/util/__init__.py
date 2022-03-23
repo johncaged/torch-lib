@@ -91,6 +91,33 @@ class Nothing:
     def __repr__(self) -> str:
         return 'NOTHING'
 
+    def __add__(self, _):
+        return self
+    
+    def __sub__(self, _):
+        return self
+
+    def __mul__(self, _):
+        return self
+    
+    def __truediv__(self, _):
+        return self
+    
+    def __radd__(self, _):
+        return self
+    
+    def __rsub__(self, _):
+        return self
+
+    def __rmul__(self, _):
+        return self
+    
+    def __rtruediv__(self, _):
+        return self
+
+    def __float__(self):
+        return 0.0
+
 
 NOTHING = Nothing()
 
@@ -104,11 +131,19 @@ def is_nothing(obj):
     Returns:
         bool: whether the object is instance of 'Nothing'
     """
-    return obj == NOTHING
+    return NOTHING is obj
+
+
+def check_nothing(obj, x, y=NOTHING):
+    return x if is_nothing(obj) is False else y
 
 
 def dict_merge(dict1: Dict, dict2: Dict):
     return { **dict1, **dict2 }
+
+
+def safe_divide(dividend, divisor):
+    return dividend / divisor if divisor != 0 else 0
 
 
 class Base:

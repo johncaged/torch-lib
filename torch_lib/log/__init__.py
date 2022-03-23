@@ -20,7 +20,7 @@ debug_prefix = '[TORCH_LIB DEBUG]'
 def color_format(*args, color: str, sep: str = ' '):
     color_prefix = '\033[%dm' % color_dict.get(color, 38)
     color_suffix = '\033[0m'
-    return '%s%s%s' % (color_prefix, sep.join(args), color_suffix)
+    return '%s%s%s' % (color_prefix, sep.join(str(arg) for arg in args), color_suffix)
 
 
 @Singleton
@@ -46,6 +46,9 @@ class Logger:
 
     def debug(self, *args):
         self.output(debug_prefix, *args, type='debug', color='g')
+
+    def log(self, *args, **kwargs):
+        print(*args, **kwargs)
 
     def output(self, *args, type: str, color: str = 'w'):
         if self._control.get(type, False) is True:

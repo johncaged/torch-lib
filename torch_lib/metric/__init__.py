@@ -46,7 +46,7 @@ class MetricContainer(Metric):
     def get(self, ctx: Context) -> Union[Dict, NUMBER]:
         result = {}
         for metric in self.metrics:
-            _res = metric(ctx)
+            _res = metric.obtain(ctx)
             # is not Nothing
             if is_nothing(_res) is False:
                 # TODO: change the dict merge operation

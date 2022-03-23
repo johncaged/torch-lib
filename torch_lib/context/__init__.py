@@ -133,6 +133,7 @@ class HandlerContext(TempContext):
         self.Loss = handler.LossHandler
         self.Backward = handler.BackwardHandler
         self.Metrics = handler.MetricsHandler
+        self.Average = handler.AverageHandler
         self.Display = handler.DisplayHandler
         self.Dataset = handler.DatasetHandler
         self.Mode = handler.ModeHandler
@@ -144,6 +145,26 @@ class HandlerContext(TempContext):
         self.EpochEnd = handler.EpochEndHandler
 
 
+class CustomContext(TempContext):
+
+    def __init__(self):
+        super().__init__()
+    
+    def initialize(self):
+        self.__dict__.clear()
+        logger.debug('Custom context has been initialized.')
+
+
+class InnerContext(TempContext):
+
+    def __init__(self):
+        super().__init__()
+    
+    def initialize(self):
+        self.__dict__.clear()
+        logger.debug('Inner context has been initialized.')
+
+
 class Context(Base):
     """
     Context in the whole life time.
@@ -153,6 +174,8 @@ class Context(Base):
     epoch = MultiConst()
     step = MultiConst()
     handler = MultiConst()
+    custom = MultiConst()
+    inner = MultiConst()
 
     def __init__(self):
         super().__init__()
@@ -168,6 +191,9 @@ class Context(Base):
         self.mode: str = NOTHING
         # the current dataset for running
         self.dataset: DataLoader = NOTHING
+        # proxy
+        from torch_lib.core import ModelProxy
+        self.proxy: ModelProxy = NOTHING
         # build context
         self.build: BuildContext = BuildContext()
         # information in one epoch
@@ -176,6 +202,10 @@ class Context(Base):
         self.step: StepContext = StepContext()
         # handler context
         self.handler: HandlerContext = HandlerContext()
+        # custom context
+        self.custom: CustomContext = CustomContext()
+        # inner context
+        self.inner: InnerContext = InnerContext()
 
     def check(self, items: Union[str, Sequence[str]], silent: bool = True):
         # check single item

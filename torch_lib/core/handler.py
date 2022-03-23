@@ -1,6 +1,6 @@
 from abc import abstractmethod
-from typing import List, Sequence, Union
-from torch_lib.util import AddAccessFilter, AccessFilter, ListAccessFilter, MultiConst, IterTool, NOTHING, type_cast, InvocationDebug
+from typing import Dict, List, Sequence, Union
+from torch_lib.util import AddAccessFilter, AccessFilter, ListAccessFilter, MultiConst, IterTool, NOTHING, is_nothing, safe_divide, type_cast, InvocationDebug
 from torch_lib.context import Context
 from torch_lib.log import logger
 from functools import wraps
@@ -29,7 +29,7 @@ class Handler:
         pass
 
 
-# core handler or sequence of core handlers
+# handler or sequence of handlers
 C_SEQ = Union[Handler, Sequence[Handler]]
 
 
@@ -46,7 +46,7 @@ class HandlerContainer(Handler):
     
     def handle(self, ctx: Context):
         for handler in self.handlers:
-            handler(ctx)
+            handler.handle(ctx)
 
 
 class EpochIterationHandler(HandlerContainer):
@@ -62,6 +62,8 @@ class EpochIterationHandler(HandlerContainer):
         for current in range(ctx.epoch.total):
             # set current epoch to the context
             ctx.epoch.current = current
+            # output epoch info. TODO: change logger operation to a handler?
+            logger.log('Epoch %d' % ctx.epoch.current)
             super().handle(ctx)
 
 
@@ -160,7 +162,11 @@ class MetricsHandler(Handler):
             ctx.step.metrics = ctx.build.metrics.obtain(ctx)
 
 
+# TODO: implementation to be optimized
 class AverageHandler(Handler):
+
+    # inner context key
+    INNER_KEY = 'AVERAGE_INNER'
 
     def __init__(self, type: str = 'avg'):
         super().__init__()
@@ -170,16 +176,76 @@ class AverageHandler(Handler):
         self.type = type
     
     def handle(self, ctx: Context):
+        if is_nothing(ctx.inner[self.INNER_KEY]):
+            ctx.inner[self.INNER_KEY] = {
+                'train': {
+                    'count': 0,
+                    'loss': 0,
+                    'metrics': {}
+                },
+                'eval': {
+                    'count': 0,
+                    'loss': 0,
+                    'metrics': {}
+                }
+            }
+
         if self.type == 'avg':
             self.average(ctx)
         elif self.type == 'clear':
             self.clear(ctx)
 
     def average(self, ctx: Context):
-        pass
+        # get inner context variables
+        summary = ctx.inner[self.INNER_KEY].get(ctx.mode, NOTHING)
+        summary['count'] += 1
+        # get average loss and metrics
+        avg_loss = self._compute_avg_loss(summary, ctx.step.loss)
+        avg_metrics = self._compute_avg_metrics(summary, ctx.step.metrics)
+        if ctx.mode == 'train':
+            ctx.epoch.train_loss = avg_loss
+            ctx.epoch.train_metrics = avg_metrics
+        elif ctx.mode == 'eval':
+            ctx.epoch.eval_loss = avg_loss
+            ctx.epoch.eval_metrics = avg_metrics
 
     def clear(self, ctx: Context):
-        pass
+        # reset inner context variables
+        ctx.inner[self.INNER_KEY][ctx.mode] = {
+            'count': 0,
+            'loss': 0,
+            'metrics': {}
+        }
+        # reset epoch metrics and loss
+        if ctx.mode == 'train':
+            ctx.epoch.train_metrics = NOTHING
+            ctx.epoch.train_loss = NOTHING
+        elif ctx.mode == 'eval':
+            ctx.epoch.eval_metrics = NOTHING
+            ctx.epoch.eval_loss = NOTHING
+
+    @staticmethod
+    def _compute_avg_loss(summary, loss):
+        if 'loss' in summary and 'count' in summary and is_nothing(loss) is False:
+            summary['loss'] += float(loss)
+            return safe_divide(summary['loss'], summary['count'])
+        else:
+            return NOTHING
+
+    @staticmethod
+    def _compute_avg_metrics(summary: Dict, metrics: Dict):
+        if 'metrics' in summary and 'count' in summary:
+            temp = {}
+            _metrics = summary['metrics']
+            for key, value in metrics.items():
+                if key in _metrics:
+                    _metrics[key] += value
+                else:
+                    _metrics[key] = value
+                temp[key] = safe_divide(_metrics[key], summary['count'])
+            return temp
+        else:
+            return NOTHING
 
 
 class DisplayHandler(Handler):
@@ -189,9 +255,9 @@ class DisplayHandler(Handler):
     
     @InvocationDebug('DisplayHandler')
     def handle(self, ctx: Context):
-        # TODO
-        # display results
-        return super().handle(ctx)
+        logger.log('\r', '%d/%d' % (ctx.step.current + 1, ctx.step.total), 'loss: %f' % ctx.step.loss, 'metrics: %s' % str(ctx.step.metrics), end='', flush=True)
+        if ctx.step.current + 1 == ctx.step.total:
+            logger.log()
 
 
 class DatasetHandler(Handler):
