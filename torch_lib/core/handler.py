@@ -157,14 +157,14 @@ class BackwardHandler(Handler):
     @InvocationDebug('BackwardHandler')
     def handle(self, ctx: Context):
         # context check
-        ctx.check([
+        if ctx.check([
             'step.loss',
             'build.optimizer'
-        ], silent=False)
-        # backward
-        ctx.build.optimizer.zero_grad()
-        ctx.step.loss.backward()
-        ctx.build.optimizer.step()
+        ]) is True:
+            # backward
+            ctx.build.optimizer.zero_grad()
+            ctx.step.loss.backward()
+            ctx.build.optimizer.step()
 
 
 class MetricsHandler(Handler):
