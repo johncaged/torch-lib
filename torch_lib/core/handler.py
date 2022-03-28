@@ -20,12 +20,30 @@ def TorchGrad(func):
 
 
 class Handler:
+    """Base class for all handlers.
+    """
 
     def __init__(self):
         super().__init__()
 
     @abstractmethod
     def handle(self, ctx: Context):
+        pass
+
+
+class EmptyHandler(Handler):
+    """Empty handler that does nothing when called.
+
+    Args:
+        Handler (torch_lib.core.handler.Handler): _description_
+    """
+
+    def __init__(self):
+        super().__init__()
+    
+    @InvocationDebug('EmptyHandler')
+    def handle(self, _: Context):
+        """do nothing"""
         pass
 
 
@@ -77,9 +95,9 @@ class IterationHandler(HandlerContainer):
     def handle(self, ctx: Context):
         # context check
         ctx.check('dataset', silent=False)
-        for item, progress, time, current, total in IterTool(ctx.dataset, True, True, True, True):
+        for batch, progress, time, current, total in IterTool(ctx.dataset, True, True, True, True):
             ctx.step.from_dict({
-                'item': item, # original batch data of the dataset
+                'batch': batch, # original batch data of the dataset
                 'progress': progress, # progress of iteration(includes current step and total steps)
                 'time': time, # time of the iter(current time)
                 'current': current, # the current step

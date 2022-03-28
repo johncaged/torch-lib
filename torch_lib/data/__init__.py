@@ -42,10 +42,10 @@ class DataParser:
         pass
 
     def obtain(self, ctx: Context) -> Tuple[Any, Any, Any]:
-        item = self.get(ctx)
-        if isinstance(item, tuple) is False or len(item) != 3:
+        batch = self.get(ctx)
+        if isinstance(batch, tuple) is False or len(batch) != 3:
             logger.warn('DataParser returns a non-tuple object or the tuple length is not 3, this may cause value-unpack excpetions.')
-        return item
+        return batch
 
 
 class IndexParser(DataParser):
@@ -62,5 +62,5 @@ class IndexParser(DataParser):
         self.extra = extra
 
     def get(self, ctx: Context) -> Tuple[Any, Any, Any]:
-        item = ctx.step.item
-        return list_take(item, self.x), list_take(item, self.y), list_take(item, self.extra)
+        batch = ctx.step.batch
+        return list_take(batch, self.x), list_take(batch, self.y), list_take(batch, self.extra)

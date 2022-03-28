@@ -54,8 +54,8 @@ class StepContext(TempContext):
         self.time: Union[int, float] = NOTHING
         # tuple of current step and total steps, it's used for progress visualization in the console
         self.progress: Tuple[int, int] = NOTHING
-        # original item of the iteration of dataloader
-        self.item: Any = NOTHING
+        # original batch data of the iteration of dataloader
+        self.batch: Any = NOTHING
 
 
 class EpochContext(TempContext):
