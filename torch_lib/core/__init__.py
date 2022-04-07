@@ -42,6 +42,7 @@ class ModelProxy:
         self._build_callbacks(callbacks)
         self._build_dataset(train_dataset, 'train')
         self._build_dataset(eval_dataset, 'eval')
+        logger.info('Using device %s to train.' % str(self.ctx.device))
         self.ctx.build.train.handle(self.ctx)
 
     @InvocationDebug('ModelProxy.Predict')
@@ -53,6 +54,7 @@ class ModelProxy:
     ):
         self._build_callbacks(callbacks)
         self._build_dataset(dataset, 'eval')
+        logger.info('Using device %s to predict.' % str(self.ctx.device))
         self.ctx.build.predict.handle(self.ctx)
 
     @InvocationDebug('ModelProxy.Eval')
@@ -64,6 +66,7 @@ class ModelProxy:
     ):
         self._build_callbacks(callbacks)
         self._build_dataset(dataset, 'eval')
+        logger.info('Using device %s to eval.' % str(self.ctx.device))
         self.ctx.build.eval.handle(self.ctx)
 
     @InvocationDebug('ModelProxy.Summary')
@@ -127,6 +130,8 @@ class ModelProxy:
                     # step end callback
                     handler.StepEnd()
                 ]),
+                # apply learning rate decay
+                handler.LRDecay(),
                 # set mode to 'eval'
                 handler.Mode('eval'),
                 # get dataset
@@ -241,7 +246,9 @@ class ModelProxy:
 
     @InvocationDebug('ModelProxy._build_lr_decay')
     def _build_lr_decay(self, lr_decay, lr_decay_options):
-        pass
+        if lr_decay is not None:
+            if isinstance(lr_decay, str) is False:
+                self.ctx.build.lr_decay = lr_decay
 
     @InvocationDebug('ModelProxy._build_total_epochs')
     def _build_total_epochs(self, total_epochs):

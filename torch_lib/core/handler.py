@@ -1,6 +1,8 @@
 from abc import abstractmethod
 from typing import Dict, List, Sequence, Union
 from torch_lib.util import AddAccessFilter, AccessFilter, ListAccessFilter, MultiConst, IterTool, NOTHING, is_nothing, safe_divide, type_cast, InvocationDebug
+import torch_lib.util.terminal as Cursor
+from torch_lib.util.formatter import progress_format, eta_format
 from torch_lib.context import Context
 from torch_lib.log import logger
 from functools import wraps
@@ -81,7 +83,7 @@ class EpochIterationHandler(HandlerContainer):
             # set current epoch to the context
             ctx.epoch.current = current
             # output epoch info. TODO: change logger operation to a handler?
-            logger.log('Epoch %d' % ctx.epoch.current)
+            logger.log('Epoch %d' % (ctx.epoch.current + 1))
             super().handle(ctx)
 
 
@@ -94,17 +96,17 @@ class IterationHandler(HandlerContainer):
     @TorchGrad
     def handle(self, ctx: Context):
         # context check
-        ctx.check('dataset', silent=False)
-        for batch, progress, time, current, total in IterTool(ctx.dataset, True, True, True, True):
-            ctx.step.from_dict({
-                'batch': batch, # original batch data of the dataset
-                'progress': progress, # progress of iteration(includes current step and total steps)
-                'time': time, # time of the iter(current time)
-                'current': current, # the current step
-                'total': total # total steps of iteration
-            })
-            # carry out the subsequent actions
-            super().handle(ctx)
+        if ctx.check('dataset', silent=False) is True:
+            for batch, progress, time, current, total in IterTool(ctx.dataset, True, True, True, True):
+                ctx.step.from_dict({
+                    'batch': batch, # original batch data of the dataset
+                    'progress': progress, # progress of iteration(includes current step and total steps)
+                    'time': time, # time of the iter(current time)
+                    'current': current, # the current step
+                    'total': total # total steps of iteration
+                })
+                # carry out the subsequent actions
+                super().handle(ctx)
 
 
 class ForwardHandler(Handler):
@@ -193,6 +195,7 @@ class AverageHandler(Handler):
             logger.warn('An unsupported average handler type is set.')
         self.type = type
     
+    @InvocationDebug('AverageHandler')
     def handle(self, ctx: Context):
         if is_nothing(ctx.inner[self.INNER_KEY]):
             ctx.inner[self.INNER_KEY] = {
@@ -273,9 +276,38 @@ class DisplayHandler(Handler):
     
     @InvocationDebug('DisplayHandler')
     def handle(self, ctx: Context):
-        logger.log('\r', '%d/%d' % (ctx.step.current + 1, ctx.step.total), 'loss: %f' % ctx.step.loss, 'metrics: %s' % str(ctx.step.metrics), end='', flush=True)
-        if ctx.step.current + 1 == ctx.step.total:
-            logger.log()
+        current = ctx.step.current
+        total = ctx.step.total
+
+        data = []
+        if ctx.mode == 'train':
+            if is_nothing(ctx.epoch.train_loss) is False:
+                data.append('loss: {0:.5f}'.format(ctx.epoch.train_loss))
+            for key, value in ctx.epoch.train_metrics.items():
+                data.append('{0}: {1:.5f}'.format(key, value))
+        elif ctx.mode == 'eval':
+            if is_nothing(ctx.epoch.eval_loss) is False:
+                data.append('loss: {0:.5f}'.format(ctx.epoch.eval_loss))
+            for key, value in ctx.epoch.eval_metrics.items():
+                data.append('{0}: {1:.5f}'.format(key, value))
+        data = ' '.join(data)
+
+        with Cursor.cursor_invisible():
+            Cursor.refresh_print(
+                ctx.mode.upper(),
+                # progress bar
+                progress_format(ctx.step.progress, newline=False),
+                # eta with color blue
+                '{0}ETA: {1}{2}'.format(
+                    Cursor.single_color('b'),
+                    eta_format(ctx.step.time, total - current - 1),
+                    Cursor.reset_style()
+                ),
+                # loss and metrics output
+                data,
+                # print new line if progress end
+                end='\n' if current + 1 == total else ''
+            )
 
 
 class DatasetHandler(Handler):
@@ -316,6 +348,17 @@ class ModeHandler(Handler):
         ctx.mode = self.mode
         # change pytorch model mode to self.mode
         getattr(ctx.model, self.mode, NOTHING)()
+
+
+class LRDecayHandler(Handler):
+
+    def __init__(self):
+        super().__init__()
+    
+    @InvocationDebug('LRDecayHandler')
+    def handle(self, ctx: Context):
+        if ctx.check(['build.lr_decay']) is True:
+            ctx.build.lr_decay.step()
 
 
 # callback adapters

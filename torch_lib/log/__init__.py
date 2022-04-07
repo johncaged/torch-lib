@@ -1,4 +1,5 @@
 from torch_lib.util import Singleton
+import sys
 
 
 color_dict = {
@@ -8,7 +9,7 @@ color_dict = {
     'b': 34,  # blue
     'p': 35,  # purple
     'c': 36,  # cyan
-    'w': 38  # white
+    'w': 37  # white
 }
 
 info_prefix = '[TORCH_LIB INFO]'

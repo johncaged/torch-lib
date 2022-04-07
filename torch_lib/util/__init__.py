@@ -208,6 +208,13 @@ class Base:
 
     def __getattribute__(self, key):
         return super().__getattribute__(key)
+    
+    def __delattr__(self, __name: str) -> None:
+        # safe delete
+        try:
+            super().__delattr__(__name)
+        except Exception:
+            return
 
 
 class SingleConst:

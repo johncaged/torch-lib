@@ -137,6 +137,7 @@ class HandlerContext(TempContext):
         self.Display = handler.DisplayHandler
         self.Dataset = handler.DatasetHandler
         self.Mode = handler.ModeHandler
+        self.LRDecay = handler.LRDecayHandler
         self.Begin = handler.BeginHandler
         self.End = handler.EndHandler
         self.StepBegin = handler.StepBeginHandler
