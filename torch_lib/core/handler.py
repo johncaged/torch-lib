@@ -3,7 +3,7 @@ from typing import Dict, List, Sequence, Union
 from torch_lib.util import AddAccessFilter, AccessFilter, ListAccessFilter, MultiConst, IterTool, NOTHING, is_nothing, safe_divide, type_cast, InvocationDebug
 import torch_lib.util.terminal as Cursor
 from torch_lib.util.formatter import progress_format, eta_format
-from torch_lib.context import Context
+from torch_lib.core.context import Context
 from torch_lib.log import logger
 from functools import wraps
 from torch import set_grad_enabled
@@ -31,6 +31,9 @@ class Handler:
     @abstractmethod
     def handle(self, ctx: Context):
         pass
+
+    def __call__(self, ctx: Context):
+        self.handle(ctx)
 
 
 class EmptyHandler(Handler):
@@ -66,7 +69,7 @@ class HandlerContainer(Handler):
     
     def handle(self, ctx: Context):
         for handler in self.handlers:
-            handler.handle(ctx)
+            handler(ctx)
 
 
 class EpochIterationHandler(HandlerContainer):
@@ -124,7 +127,7 @@ class ForwardHandler(Handler):
             'step'
         ], silent=False)
         # forward
-        x, y_true, extra = ctx.build.data_parser.obtain(ctx)
+        x, y_true, extra = ctx.run.data_parser(ctx)
         y_pred = ctx.model(type_cast(x, ctx.device))
         y_true = type_cast(y_true, ctx.device)
         # clone and update context info
@@ -147,7 +150,7 @@ class LossHandler(Handler):
         # context check
         if ctx.check('build.loss') is True:
             # compute loss
-            loss = ctx.build.loss(ctx.step.y_pred, ctx.step.y_true)
+            loss = ctx.run.loss(ctx.step.y_pred, ctx.step.y_true)
             ctx.step.loss = loss
 
 
@@ -164,9 +167,9 @@ class BackwardHandler(Handler):
             'build.optimizer'
         ]) is True:
             # backward
-            ctx.build.optimizer.zero_grad()
+            ctx.run.optimizer.zero_grad()
             ctx.step.loss.backward()
-            ctx.build.optimizer.step()
+            ctx.run.optimizer.step()
 
 
 class MetricsHandler(Handler):
@@ -179,7 +182,7 @@ class MetricsHandler(Handler):
         # context check
         ctx.check('step', silent=False)
         if ctx.check('build.metrics') is True:
-            ctx.step.metrics = ctx.build.metrics.obtain(ctx)
+            ctx.step.metrics = ctx.run.metrics(ctx)
 
 
 # TODO: implementation to be optimized
@@ -322,10 +325,10 @@ class DatasetHandler(Handler):
         # get dataset through mode
         if ctx.mode == 'train':
             ctx.check('build.train_provider', silent=False)
-            ctx.dataset = ctx.build.train_provider.obtain(ctx)
+            ctx.dataset = ctx.run.train_provider(ctx)
         elif ctx.mode == 'eval':
             ctx.check('build.eval_provider', silent=False)
-            ctx.dataset = ctx.build.eval_provider.obtain(ctx)
+            ctx.dataset = ctx.run.eval_provider(ctx)
 
 
 class ModeHandler(Handler):
@@ -358,7 +361,7 @@ class LRDecayHandler(Handler):
     @InvocationDebug('LRDecayHandler')
     def handle(self, ctx: Context):
         if ctx.check(['build.lr_decay']) is True:
-            ctx.build.lr_decay.step()
+            ctx.run.lr_decay.step()
 
 
 # callback adapters
@@ -373,7 +376,7 @@ class BeginHandler(Handler):
         ctx.check([
             'build.callbacks'
         ])
-        ctx.build.callbacks.begin(ctx)
+        ctx.run.callbacks.begin(ctx)
 
 
 class EndHandler(Handler):
@@ -387,7 +390,7 @@ class EndHandler(Handler):
         ctx.check([
             'build.callbacks'
         ])
-        ctx.build.callbacks.end(ctx)
+        ctx.run.callbacks.end(ctx)
 
 
 class StepBeginHandler(Handler):
@@ -401,7 +404,7 @@ class StepBeginHandler(Handler):
         ctx.check([
             'build.callbacks'
         ])
-        ctx.build.callbacks.step_begin(ctx)
+        ctx.run.callbacks.step_begin(ctx)
 
 
 class StepEndHandler(Handler):
@@ -415,7 +418,7 @@ class StepEndHandler(Handler):
         ctx.check([
             'build.callbacks'
         ])
-        ctx.build.callbacks.step_end(ctx)
+        ctx.run.callbacks.step_end(ctx)
 
 
 class EpochBeginHandler(Handler):
@@ -429,7 +432,7 @@ class EpochBeginHandler(Handler):
         ctx.check([
             'build.callbacks'
         ])
-        ctx.build.callbacks.epoch_begin(ctx)
+        ctx.run.callbacks.epoch_begin(ctx)
 
 
 class EpochEndHandler(Handler):
@@ -443,4 +446,4 @@ class EpochEndHandler(Handler):
         ctx.check([
             'build.callbacks'
         ])
-        ctx.build.callbacks.epoch_end(ctx)
+        ctx.run.callbacks.epoch_end(ctx)

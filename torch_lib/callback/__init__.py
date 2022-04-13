@@ -1,4 +1,4 @@
-from torch_lib.context import Context
+from torch_lib.core.context import Context
 from torch_lib.util import AddAccessFilter, MultiConst, AccessFilter, ListAccessFilter
 from typing import List, Union, Sequence
 

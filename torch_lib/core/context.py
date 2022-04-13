@@ -9,6 +9,68 @@ from torch_lib.log import logger
 from abc import abstractmethod
 
 
+class Context(Base):
+    """
+    Context in the whole life time.
+    """
+
+    run = MultiConst()
+    epoch = MultiConst()
+    step = MultiConst()
+    handler = MultiConst()
+    custom = MultiConst()
+    inner = MultiConst()
+
+    def __init__(self):
+        super().__init__()
+        
+        """
+        context attribute placeholders(for code hints)
+        """
+        # device for pytorch
+        self.device: Union[str, device] = NOTHING
+        # model
+        self.model: Module = NOTHING
+        # running mode(train, eval, etc.)
+        self.mode: str = NOTHING
+        # the current dataset for running
+        self.dataset: DataLoader = NOTHING
+        # run context
+        self.run: RunContext = RunContext()
+        # information in one epoch
+        self.epoch: EpochContext = EpochContext()
+        # information in one step
+        self.step: StepContext = StepContext()
+        # handler context
+        self.handler: HandlerContext = HandlerContext()
+        # custom context
+        self.custom: CustomContext = CustomContext()
+        # inner context
+        self.inner: InnerContext = InnerContext()
+
+    def check(self, items: Union[str, Sequence[str]], silent: bool = True):
+        # check single item
+        def _check(_item):
+            _result = super(Context, self).check(_item)
+            if _result is False:
+                msg = 'Context check failed: got NOTHING with key \'%s\'.' % _item
+                if silent is True:
+                    logger.debug(msg)
+                else:
+                    logger.warn(msg)
+            return _result
+
+        if isinstance(items, (list, tuple)):
+            # sequence value
+            for item in items:
+                if _check(str(item)) is False:
+                    return False
+            return True
+        else:
+            # single value
+            return _check(str(items))
+
+
 class TempContext(Base):
     """Temp context that defines a initialize method to quickly reset the context.
 
@@ -81,13 +143,13 @@ class EpochContext(TempContext):
         self.eval_loss = NOTHING
 
 
-class BuildContext(TempContext):
+class RunContext(TempContext):
 
     def __init__(self):
         super().__init__()
     
     def initialize(self):
-        # batch handlers that define the process of training, evaluating and predicting.
+        # handler containers that define the process of training, evaluating and predicting.
         from torch_lib.core.handler import HandlerContainer
         self.train: HandlerContainer = NOTHING
         self.eval: HandlerContainer = NOTHING
@@ -164,68 +226,3 @@ class InnerContext(TempContext):
     def initialize(self):
         self.__dict__.clear()
         logger.debug('Inner context has been initialized.')
-
-
-class Context(Base):
-    """
-    Context in the whole life time.
-    """
-
-    build = MultiConst()
-    epoch = MultiConst()
-    step = MultiConst()
-    handler = MultiConst()
-    custom = MultiConst()
-    inner = MultiConst()
-
-    def __init__(self):
-        super().__init__()
-        
-        """
-        context attribute placeholders(for code hints)
-        """
-        # device for pytorch
-        self.device: Union[str, device] = NOTHING
-        # model
-        self.model: Module = NOTHING
-        # running mode(train, eval, etc.)
-        self.mode: str = NOTHING
-        # the current dataset for running
-        self.dataset: DataLoader = NOTHING
-        # proxy
-        from torch_lib.core import ModelProxy
-        self.proxy: ModelProxy = NOTHING
-        # build context
-        self.build: BuildContext = BuildContext()
-        # information in one epoch
-        self.epoch: EpochContext = EpochContext()
-        # information in one step
-        self.step: StepContext = StepContext()
-        # handler context
-        self.handler: HandlerContext = HandlerContext()
-        # custom context
-        self.custom: CustomContext = CustomContext()
-        # inner context
-        self.inner: InnerContext = InnerContext()
-
-    def check(self, items: Union[str, Sequence[str]], silent: bool = True):
-        # check single item
-        def _check(_item):
-            _result = super(Context, self).check(_item)
-            if _result is False:
-                msg = 'Context check failed: got NOTHING with key \'%s\'.' % _item
-                if silent is True:
-                    logger.debug(msg)
-                else:
-                    logger.warn(msg)
-            return _result
-
-        if isinstance(items, (list, tuple)):
-            # sequence value
-            for item in items:
-                if _check(str(item)) is False:
-                    return False
-            return True
-        else:
-            # single value
-            return _check(str(items))

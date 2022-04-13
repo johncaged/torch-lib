@@ -2,7 +2,7 @@ from abc import abstractmethod
 from typing import Union, Dict, List, Sequence
 from torch_lib.util.type import NUMBER, NUMBER_T
 from torch_lib.util import Count, Nothing, MultiConst, AccessFilter, AddAccessFilter, ListAccessFilter, is_nothing, dict_merge, NOTHING
-from torch_lib.context import Context
+from torch_lib.core.context import Context
 
 
 class Metric():
@@ -15,7 +15,7 @@ class Metric():
     def get(self, ctx: Context) -> Union[Dict, NUMBER]:
         pass
 
-    def obtain(self, ctx: Context) -> Union[Dict, Nothing]:
+    def __call__(self, ctx: Context) -> Union[Dict, Nothing]:
         result = self.get(ctx)
         if isinstance(result, Dict):
             return result
@@ -46,7 +46,7 @@ class MetricContainer(Metric):
     def get(self, ctx: Context) -> Union[Dict, NUMBER]:
         result = {}
         for metric in self.metrics:
-            _res = metric.obtain(ctx)
+            _res = metric(ctx)
             # is not Nothing
             if is_nothing(_res) is False:
                 # TODO: change the dict merge operation
