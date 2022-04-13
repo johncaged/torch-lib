@@ -80,7 +80,7 @@ class EpochIterationHandler(HandlerContainer):
     @InvocationDebug('EpochIterationHandler')
     def handle(self, ctx: Context):
         # context check
-        ctx.check('epoch.total', silent=False)
+        ctx.ctx_check('epoch.total', silent=False)
         # epoch loops
         for current in range(ctx.epoch.total):
             # set current epoch to the context
@@ -99,7 +99,7 @@ class IterationHandler(HandlerContainer):
     @TorchGrad
     def handle(self, ctx: Context):
         # context check
-        if ctx.check('dataset', silent=False) is True:
+        if ctx.ctx_check('dataset') is True:
             for batch, progress, time, current, total in IterTool(ctx.dataset, True, True, True, True):
                 ctx.step.from_dict({
                     'batch': batch, # original batch data of the dataset
@@ -120,10 +120,10 @@ class ForwardHandler(Handler):
     @InvocationDebug('ForwardHandler')
     def handle(self, ctx: Context):
         # context check
-        ctx.check([
+        ctx.ctx_check([
             'model',
             'device',
-            'build.data_parser',
+            'run.data_parser',
             'step'
         ], silent=False)
         # forward
@@ -148,7 +148,7 @@ class LossHandler(Handler):
     @InvocationDebug('LossHandler')
     def handle(self, ctx: Context):
         # context check
-        if ctx.check('build.loss') is True:
+        if ctx.ctx_check('run.loss') is True:
             # compute loss
             loss = ctx.run.loss(ctx.step.y_pred, ctx.step.y_true)
             ctx.step.loss = loss
@@ -162,9 +162,9 @@ class BackwardHandler(Handler):
     @InvocationDebug('BackwardHandler')
     def handle(self, ctx: Context):
         # context check
-        if ctx.check([
+        if ctx.ctx_check([
             'step.loss',
-            'build.optimizer'
+            'run.optimizer'
         ]) is True:
             # backward
             ctx.run.optimizer.zero_grad()
@@ -180,8 +180,8 @@ class MetricsHandler(Handler):
     @InvocationDebug('MetricsHandler')
     def handle(self, ctx: Context):
         # context check
-        ctx.check('step', silent=False)
-        if ctx.check('build.metrics') is True:
+        ctx.ctx_check('step', silent=False)
+        if ctx.ctx_check('run.metrics') is True:
             ctx.step.metrics = ctx.run.metrics(ctx)
 
 
@@ -321,13 +321,13 @@ class DatasetHandler(Handler):
     @InvocationDebug('DatasetHandler')
     def handle(self, ctx: Context):
         # context check
-        ctx.check('mode', silent=False)
+        ctx.ctx_check('mode', silent=False)
         # get dataset through mode
         if ctx.mode == 'train':
-            ctx.check('build.train_provider', silent=False)
+            ctx.ctx_check('run.train_provider', silent=False)
             ctx.dataset = ctx.run.train_provider(ctx)
         elif ctx.mode == 'eval':
-            ctx.check('build.eval_provider', silent=False)
+            ctx.ctx_check('run.eval_provider', silent=False)
             ctx.dataset = ctx.run.eval_provider(ctx)
 
 
@@ -344,7 +344,7 @@ class ModeHandler(Handler):
     @InvocationDebug('ModeHandler')
     def handle(self, ctx: Context):
         # context check
-        ctx.check([
+        ctx.ctx_check([
             'model'
         ], silent=False)
         # set mode to the context
@@ -360,7 +360,7 @@ class LRDecayHandler(Handler):
     
     @InvocationDebug('LRDecayHandler')
     def handle(self, ctx: Context):
-        if ctx.check(['build.lr_decay']) is True:
+        if ctx.ctx_check(['run.lr_decay']) is True:
             ctx.run.lr_decay.step()
 
 
@@ -373,8 +373,8 @@ class BeginHandler(Handler):
     @InvocationDebug('BeginHandler')
     def handle(self, ctx: Context):
         # context check
-        ctx.check([
-            'build.callbacks'
+        ctx.ctx_check([
+            'run.callbacks'
         ])
         ctx.run.callbacks.begin(ctx)
 
@@ -387,8 +387,8 @@ class EndHandler(Handler):
     @InvocationDebug('EndHandler')
     def handle(self, ctx: Context):
         # context check
-        ctx.check([
-            'build.callbacks'
+        ctx.ctx_check([
+            'run.callbacks'
         ])
         ctx.run.callbacks.end(ctx)
 
@@ -401,8 +401,8 @@ class StepBeginHandler(Handler):
     @InvocationDebug('StepBeginHandler')
     def handle(self, ctx: Context):
         # context check
-        ctx.check([
-            'build.callbacks'
+        ctx.ctx_check([
+            'run.callbacks'
         ])
         ctx.run.callbacks.step_begin(ctx)
 
@@ -415,8 +415,8 @@ class StepEndHandler(Handler):
     @InvocationDebug('StepEndHandler')
     def handle(self, ctx: Context):
         # context check
-        ctx.check([
-            'build.callbacks'
+        ctx.ctx_check([
+            'run.callbacks'
         ])
         ctx.run.callbacks.step_end(ctx)
 
@@ -429,8 +429,8 @@ class EpochBeginHandler(Handler):
     @InvocationDebug('EpochBeginHandler')
     def handle(self, ctx: Context):
         # context check
-        ctx.check([
-            'build.callbacks'
+        ctx.ctx_check([
+            'run.callbacks'
         ])
         ctx.run.callbacks.epoch_begin(ctx)
 
@@ -443,7 +443,7 @@ class EpochEndHandler(Handler):
     @InvocationDebug('EpochEndHandler')
     def handle(self, ctx: Context):
         # context check
-        ctx.check([
-            'build.callbacks'
+        ctx.ctx_check([
+            'run.callbacks'
         ])
         ctx.run.callbacks.epoch_end(ctx)

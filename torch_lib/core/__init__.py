@@ -17,6 +17,8 @@ DATASET = Union[DataLoader, DataProvider]
 class Proxy(Context):
 
     def __init__(self, model, device=None):
+        # init context
+        super().__init__()
         # set device
         self.device = device if device is not None else get_device(model)
         # set model and apply type cast
@@ -38,7 +40,7 @@ class Proxy(Context):
         self.build_dataset(train_dataset, 'train')
         self.build_dataset(eval_dataset, 'eval')
         logger.info('Using device %s to train.' % str(self.device))
-        self.run.train.handle(self.ctx)
+        self.run.train(self)
 
     @InvocationDebug('Proxy.Predict')
     def predict(
@@ -50,7 +52,7 @@ class Proxy(Context):
         self.build_callbacks(callbacks)
         self.build_dataset(dataset, 'eval')
         logger.info('Using device %s to predict.' % str(self.device))
-        self.run.predict.handle(self.ctx)
+        self.run.predict(self)
 
     @InvocationDebug('Proxy.Eval')
     def eval(
@@ -62,7 +64,7 @@ class Proxy(Context):
         self.build_callbacks(callbacks)
         self.build_dataset(dataset, 'eval')
         logger.info('Using device %s to eval.' % str(self.device))
-        self.run.eval.handle(self.ctx)
+        self.run.eval(self)
 
     @InvocationDebug('Proxy.Summary')
     def summary(self):

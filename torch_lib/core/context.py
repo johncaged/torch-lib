@@ -48,7 +48,7 @@ class Context(Base):
         # inner context
         self.inner: InnerContext = InnerContext()
 
-    def check(self, items: Union[str, Sequence[str]], silent: bool = True):
+    def ctx_check(self, items: Union[str, Sequence[str]], silent: bool = True):
         # check single item
         def _check(_item):
             _result = super(Context, self).check(_item)
