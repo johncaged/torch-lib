@@ -90,6 +90,16 @@ def refresh_print(
     file.flush()
 
 
+def multi_lines(lines):
+    class MultiLineCursor:
+        def __enter__(self):
+            pass
+
+        def __exit__(self):
+            pass
+    return MultiLineCursor()
+
+
 def cursor_invisible(file=sys.stdout):
     """
     Make cursor invisible to avoid cursor flickering.

@@ -39,7 +39,7 @@ class Proxy(Context):
         self.build_callbacks(callbacks)
         self.build_dataset(train_dataset, 'train')
         self.build_dataset(eval_dataset, 'eval')
-        logger.info('Using device %s to train.' % str(self.device))
+        logger.info('Using device {0} to train.'.format(str(self.device)))
         self.run.train(self)
 
     @InvocationDebug('Proxy.Predict')
@@ -51,7 +51,7 @@ class Proxy(Context):
     ):
         self.build_callbacks(callbacks)
         self.build_dataset(dataset, 'eval')
-        logger.info('Using device %s to predict.' % str(self.device))
+        logger.info('Using device {0} to predict.'.format(str(self.device)))
         self.run.predict(self)
 
     @InvocationDebug('Proxy.Eval')
@@ -63,7 +63,7 @@ class Proxy(Context):
     ):
         self.build_callbacks(callbacks)
         self.build_dataset(dataset, 'eval')
-        logger.info('Using device %s to eval.' % str(self.device))
+        logger.info('Using device {0} to eval.'.format(str(self.device)))
         self.run.eval(self)
 
     @InvocationDebug('Proxy.Summary')

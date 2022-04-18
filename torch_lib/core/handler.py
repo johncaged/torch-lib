@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from typing import Dict, List, Sequence, Union
-from torch_lib.util import AddAccessFilter, AccessFilter, ListAccessFilter, MultiConst, IterTool, NOTHING, is_nothing, safe_divide, type_cast, InvocationDebug
+from torch_lib.util import BaseList, MultiConst, IterTool, NOTHING, is_nothing, safe_divide, type_cast, InvocationDebug
 import torch_lib.util.terminal as Cursor
 from torch_lib.util.formatter import progress_format, eta_format
 from torch_lib.core.context import Context
@@ -56,19 +56,14 @@ class EmptyHandler(Handler):
 C_SEQ = Union[Handler, Sequence[Handler]]
 
 
-@AddAccessFilter(ListAccessFilter('handlers'))
-@AccessFilter
-class HandlerContainer(Handler):
+class HandlerContainer(Handler, BaseList):
 
-    handlers = MultiConst()
     def __init__(self, handlers: C_SEQ = None):
         super().__init__()
-        self.handlers: List[Handler] = []
-        if handlers is not None:
-            self.extend(handlers)
+        BaseList.__init__(self, handlers)
     
     def handle(self, ctx: Context):
-        for handler in self.handlers:
+        for handler in self:
             handler(ctx)
 
 

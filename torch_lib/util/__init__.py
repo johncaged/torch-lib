@@ -1,6 +1,6 @@
 # TODO: refactor the util package
 from typing import Dict, Union, Tuple, Sequence
-from collections.abc import Iterator
+from collections.abc import Iterator, Iterable
 from torch_lib.util.type import T_M_SEQ, T_M
 from torch import Tensor
 from torch.nn import Module
@@ -304,70 +304,13 @@ class Count(SingleConst):
         return tmp
 
 
-def AccessFilter(cls):
-    """
-    Access filter that change methods of a class dynamically.
-    """
-    @wraps(cls)
-    def new_getattr(self, key):
-        for access_filter in cls.access_filters:
-            # Check every access filter to see if there is a defined filter value to return.
-            result = access_filter(self, key)
-            if is_nothing(result) is False:
-                return result
-        # If not in the access filters, then check its super class.
-        super_obj = super(cls, self)
-        if hasattr(super_obj, "__getattr__"):
-            # If super class defines __getattr__, then check it.
-            return super_obj.__getattr__(key)
-        # Else raise AttributeError
-        raise AttributeError("'%s' object has no attribute '%s'" % (self.__class__.__name__, key))
-    
-    # A list that contains all the access filters of the class
-    cls.access_filters = SingleConst([])
-    cls.__getattr__ = new_getattr
-    return cls
+class BaseList(list):
 
-
-def AddAccessFilter(func):
-    """
-    Add an access filter to a specific class
-    """
-    def wrapper(cls):
-        if hasattr(cls, 'access_filters') is False:
-            # TODO: Warning.
-            print('please use decorator AccessFilter to the class first before using AddAccessFilter.')
+    def __init__(self, list_like: Iterable=None):
+        if list_like is None:
+            super().__init__()
         else:
-            cls.access_filters.append(func)
-        return cls
-    return wrapper
-
-
-def ListAccessFilter(name):
-    """
-    Forward list operations to some property of the class.
-    """
-    def extend(arr):
-        """Rewrite the extend operation, so that it can append a single item if it is non-list.
-
-        Args:
-            arr (list): _description_
-        """
-        def wrapper(items):
-            if isinstance(items, (list, tuple)):
-                arr.extend(list(items))
-            else:
-                arr.append(items)
-        return wrapper
-
-    def access_filter(self, key):
-        if key in ['append', 'pop', 'clear', 'insert', 'remove']:
-            return getattr(getattr(self, name), key)
-        elif key == 'extend':
-            return extend(getattr(self, name))
-        else:
-            return NOTHING
-    return access_filter
+            super().__init__(list_like if isinstance(list_like, Iterable) else [list_like])
 
 
 def get_device(obj: T_M):
