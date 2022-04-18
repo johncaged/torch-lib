@@ -470,3 +470,18 @@ class IterTool(Iter):
 
     def total(self):
         return self.__len__()
+
+
+def count_params(model: Module, format: str = None, decimal: int = 2):
+    format_dict = {
+        None: 1,
+        'K': 1000,
+        'M': 1000000
+    }
+    divisor = format_dict.get(format, 1)
+
+    num = 0
+    for param in model.parameters():
+        num += param.numel()
+    result = num / divisor
+    return result if format is None else ('{0:.' + str(decimal) + 'f}{1}').format(result, format)

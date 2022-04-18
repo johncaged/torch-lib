@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional, Union, TypeVar
 from torch_lib.data import ConstantProvider, DataParser, DataProvider, IndexParser
 from torch_lib.metric import M_SEQ, MetricContainer
 from torch_lib.callback import C_SEQ, CallbackContainer
-from torch_lib.util import NOTHING, get_device, type_cast, MethodChaining, InvocationDebug, check_nothing, logger, is_nothing
+from torch_lib.util import NOTHING, get_device, type_cast, MethodChaining, InvocationDebug, check_nothing, logger, is_nothing, count_params
 from torch_lib.util.type import NUMBER
 from torch_lib.core.context import Context
 from torch.utils.data import DataLoader
@@ -69,6 +69,13 @@ class Proxy(Context):
     @InvocationDebug('Proxy.Summary')
     def summary(self):
         pass
+
+    @InvocationDebug('Proxy.CountParams')
+    def count_params(self, format: str = None, decimal: int = 2, log: bool = True):
+        result = count_params(self.model, format, decimal)
+        if log is True:
+            logger.info('Model parameters: {0}'.format(result))
+        return result
 
     @InvocationDebug('Proxy.Build')
     @MethodChaining
