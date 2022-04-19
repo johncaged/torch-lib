@@ -27,15 +27,18 @@ class Registry:
         return decorator
 
     def build(self, name: str, *args, **kwargs):
-        self.get(name)(*args, **kwargs)
+        return self.get(name)(*args, **kwargs)
+
+    def build_single(self, item):
+        assert isinstance(item, dict), 'Module config should be a dict.'
+        assert 'name' in item, 'Module config should have attribute "name"'
+        return self.build(item['name'], *item.get('args', []), **item.get('kwargs', {}))
 
     def build_sequential(self, list_like: Iterable):
         blocks = []
         for item in list_like:
-            assert isinstance(item, dict), 'Module config should be a dict.'
-            assert 'name' in item, 'Module config should have attribute "name"'
             for _ in range(item.get('num', 1)):
-                blocks.append(self.build(item['name'], *item.get('args', []), **item.get('kwargs', {})))
+                blocks.append(self.build_single(item))
         return nn.Sequential(*blocks)
 
     def get(self, name):
