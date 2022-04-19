@@ -1,11 +1,11 @@
-from torch_lib.util import Base, NOTHING, MultiConst
+from ..util import Base, NOTHING, MultiConst
 from torch.nn import Module
 from torch import device
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
-from torch_lib.util.type import NUMBER
+from ..util.type import NUMBER
 from typing import Any, Sequence, Union, Dict, Tuple
-from torch_lib.log import logger
+from ..log import logger
 from abc import abstractmethod
 
 
@@ -150,7 +150,7 @@ class RunContext(TempContext):
     
     def initialize(self):
         # handler containers that define the process of training, evaluating and predicting.
-        from torch_lib.core.handler import HandlerContainer
+        from .handler import HandlerContainer
         self.train: HandlerContainer = NOTHING
         self.eval: HandlerContainer = NOTHING
         self.predict: HandlerContainer = NOTHING
@@ -164,18 +164,18 @@ class RunContext(TempContext):
         # learning rate decay
         self.lr_decay: Any = NOTHING
         # data provider
-        from torch_lib.data import DataProvider
+        from ..data import DataProvider
         self.train_provider: DataProvider = NOTHING
         self.eval_provider: DataProvider = NOTHING
         # data parser
-        from torch_lib.data import DataParser, IndexParser
+        from ..data import DataParser, IndexParser
         # the data parser should be set to IndexParser as default
         self.data_parser: DataParser = IndexParser()
         # run callback executor
-        from torch_lib.callback import CallbackContainer
+        from ..callback import CallbackContainer
         self.callbacks: CallbackContainer = NOTHING
         # metric container
-        from torch_lib.metric import MetricContainer
+        from ..metric import MetricContainer
         self.metrics: MetricContainer = NOTHING
 
 

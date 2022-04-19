@@ -1,4 +1,4 @@
-from torch_lib.util import Singleton
+from ..util import Singleton
 import sys
 
 

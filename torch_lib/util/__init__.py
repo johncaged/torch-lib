@@ -1,7 +1,7 @@
 # TODO: refactor the util package
 from typing import Dict, Union, Tuple, Sequence
 from collections.abc import Iterator, Iterable
-from torch_lib.util.type import T_M_SEQ, T_M
+from .type import T_M_SEQ, T_M
 from torch import Tensor
 from torch.nn import Module
 import threading
@@ -29,7 +29,7 @@ def Singleton(cls):
 
 
 # set import here to avoid import error
-from torch_lib.log import logger
+from ..log import logger
 
 
 def InvocationDebug(module_name):

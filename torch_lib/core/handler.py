@@ -1,10 +1,10 @@
 from abc import abstractmethod
-from typing import Dict, List, Sequence, Union
-from torch_lib.util import BaseList, MultiConst, IterTool, NOTHING, is_nothing, safe_divide, type_cast, InvocationDebug
+from typing import Dict, Sequence, Union
+from ..util import BaseList, IterTool, NOTHING, is_nothing, safe_divide, type_cast, InvocationDebug
 import torch_lib.util.terminal as Cursor
-from torch_lib.util.formatter import progress_format, eta_format
-from torch_lib.core.context import Context
-from torch_lib.log import logger
+from ..util.formatter import progress_format, eta_format
+from .context import Context
+from ..log import logger
 from functools import wraps
 from torch import set_grad_enabled
 

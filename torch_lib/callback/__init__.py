@@ -1,5 +1,5 @@
-from torch_lib.core.context import Context
-from torch_lib.util import BaseList
+from ..core.context import Context
+from ..util import BaseList
 from typing import Union, Sequence
 
 

@@ -1,8 +1,8 @@
 from abc import abstractmethod
 from torch.utils.data import DataLoader
-from torch_lib.core.context import Context
-from torch_lib.util import list_take
-from torch_lib.log import logger
+from ..core.context import Context
+from ..util import list_take
+from ..log import logger
 from typing import Sequence, Tuple, Any, Union
 
 

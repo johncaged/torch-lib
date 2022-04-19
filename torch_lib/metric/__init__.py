@@ -1,8 +1,8 @@
 from abc import abstractmethod
 from typing import Union, Dict, List, Sequence
-from torch_lib.util.type import NUMBER, NUMBER_T
-from torch_lib.util import Count, Nothing, is_nothing, dict_merge, NOTHING, BaseList
-from torch_lib.core.context import Context
+from ..util.type import NUMBER, NUMBER_T
+from ..util import Count, Nothing, is_nothing, dict_merge, NOTHING, BaseList
+from ..core.context import Context
 
 
 class Metric():

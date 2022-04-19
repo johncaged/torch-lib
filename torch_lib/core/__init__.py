@@ -1,10 +1,10 @@
 from typing import Any, Dict, Optional, Union, TypeVar
-from torch_lib.data import ConstantProvider, DataParser, DataProvider, IndexParser
-from torch_lib.metric import M_SEQ, MetricContainer
-from torch_lib.callback import C_SEQ, CallbackContainer
-from torch_lib.util import NOTHING, get_device, type_cast, MethodChaining, InvocationDebug, check_nothing, logger, is_nothing, count_params
-from torch_lib.util.type import NUMBER
-from torch_lib.core.context import Context
+from ..data import ConstantProvider, DataParser, DataProvider, IndexParser
+from ..metric import M_SEQ, MetricContainer
+from ..callback import C_SEQ, CallbackContainer
+from ..util import NOTHING, get_device, type_cast, MethodChaining, InvocationDebug, check_nothing, logger, is_nothing, count_params
+from ..util.type import NUMBER
+from .context import Context
 from torch.utils.data import DataLoader
 from torch.nn import Module
 from torch.optim import Optimizer
