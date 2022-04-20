@@ -1,9 +1,13 @@
+import os
+
+from torch_lib.util import is_nothing
 from . import Callback
 from ..core.context import Context
 from ..log.directory import get_checkpoint_path, join_path, get_metric_path
 from ..log import logger
 import torch
 from typing import Sequence, Union, Callable
+import json
 
 EPOCH_SEQ = Union[int, Sequence[int]]
 
@@ -75,12 +79,44 @@ class SaveCheckpoint(Callback):
 
 class SaveMetrics(Callback):
 
-    def __init__(self, save_per: EPOCH_SEQ = 1):
+    def __init__(self, save_train: bool = True, save_eval: bool = True, save_per: EPOCH_SEQ = 1):
         super().__init__()
         self.metric_path = get_metric_path()
         self.save_per = save_per
-    
+        self.save_options = {
+            'train': save_train,
+            'eval': save_eval
+        }.items()
+        self.save_options = list(map(lambda item: item[0], filter(lambda item: item[1] is True, self.save_options)))
+        assert len(self.save_options) > 0, 'You should choose at least one item to be saved when using the "SaveMetrics" Callback.'
+
     def epoch_end(self, ctx: Context):
         if (isinstance(self.save_per, (list, tuple)) and (ctx.epoch.current + 1) in self.save_per)\
             or (ctx.epoch.current + 1) % self.save_per == 0:
-            pass
+            list_len = self.append_list(self.parse(ctx, self.save_options))
+            if list_len > ctx.epoch.current + 1:
+                logger.warn('The length of metric list is greater than number of epochs that have been executed, possibly there are some other items included in the list.')
+
+    def parse(self, ctx: Context, save_options):
+        item = {}
+        for key in save_options:
+            if key == 'train':
+                item.update(**ctx.epoch.train_metrics)
+                if is_nothing(ctx.epoch.train_loss) is False:
+                    item.update(loss=ctx.epoch.train_loss)
+            elif key == 'eval':
+                item.update(**ctx.epoch.eval_metrics)
+                if is_nothing(ctx.epoch.eval_loss) is False:
+                    item.update(val_loss=ctx.epoch.eval_loss)
+        return item
+
+    def append_list(self, item):
+        if os.path.exists(self.metric_path):
+            with open(self.metric_path, 'r') as f:
+                history = json.load(f)
+        else:
+            history = []
+        history.append(item)
+        with open(self.metric_path, 'w') as f:
+            json.dump(history)
+        return len(history)
