@@ -118,5 +118,5 @@ class SaveMetrics(Callback):
             history = []
         history.append(item)
         with open(self.metric_path, 'w') as f:
-            json.dump(history)
+            json.dump(history, f)
         return len(history)
