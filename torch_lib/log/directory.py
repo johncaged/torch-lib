@@ -19,12 +19,17 @@ def set_base_path(path: str):
         os.makedirs(BASE_PATH)
 
 
+def safe_makedirs(path):
+    if os.path.exists(path) is False:
+        os.makedirs(path)
+
+
 def set_namespace(namespace: str):
     global NAMESPACE
     NAMESPACE = namespace
     namespace_path = join_path(BASE_PATH, NAMESPACE)
     if os.path.exists(namespace_path) is False:
-        os.makedirs(namespace_path)
+        safe_makedirs(namespace_path)
     else:
         from . import logger
         logger.warn('The namespace folder already exists. Please check the namespace to avoid overwriting previous log files.')

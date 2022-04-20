@@ -3,7 +3,7 @@ import os
 from torch_lib.util import is_nothing
 from . import Callback
 from ..core.context import Context
-from ..log.directory import get_checkpoint_path, join_path, get_metric_path
+from ..log.directory import get_checkpoint_path, join_path, get_metric_path, safe_makedirs
 from ..log import logger
 import torch
 from typing import Sequence, Union, Callable
@@ -24,6 +24,7 @@ class SaveCheckpoint(Callback):
     ):
         super().__init__()
         self.checkpoint_path = get_checkpoint_path()
+        safe_makedirs(self.checkpoint_path)
         self.save_per = save_per
 
         if isinstance(checkpoint_name, str):
@@ -121,5 +122,5 @@ class SaveMetrics(Callback):
             history = []
         history.append(item)
         with open(self.metric_path, 'w') as f:
-            json.dump(history, f)
+            json.dump(history, f, indent=4)
         return len(history)
