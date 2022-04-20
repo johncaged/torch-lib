@@ -112,8 +112,11 @@ class SaveMetrics(Callback):
 
     def append_list(self, item):
         if os.path.exists(self.metric_path):
-            with open(self.metric_path, 'r') as f:
-                history = json.load(f)
+            try:
+                with open(self.metric_path, 'r') as f:
+                    history = json.load(f)
+            except Exception:
+                history = []
         else:
             history = []
         history.append(item)
