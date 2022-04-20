@@ -159,6 +159,8 @@ class RunContext(TempContext):
         self.optimizer: Optimizer = NOTHING
         # loss_func
         self.loss: Module = NOTHING
+        # gradient accumulation
+        self.grad_acc: int = 1
         # learning rate
         self.lr: NUMBER = NOTHING
         # learning rate decay
@@ -194,6 +196,7 @@ class HandlerContext(TempContext):
         self.Forward = handler.ForwardHandler
         self.Loss = handler.LossHandler
         self.Backward = handler.BackwardHandler
+        self.Optimizer = handler.OptimizerHandler
         self.Metrics = handler.MetricsHandler
         self.Average = handler.AverageHandler
         self.Display = handler.DisplayHandler

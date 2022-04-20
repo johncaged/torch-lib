@@ -33,12 +33,14 @@ class Proxy(Context):
         total_epochs: int = 1,
         eval_dataset: DATASET = NOTHING,
         callbacks: C_SEQ = NOTHING,
+        grad_acc: int = 1,
         log_option = None  # TODO: log system design
     ):
         self.build_total_epochs(total_epochs)
         self.build_callbacks(callbacks)
         self.build_dataset(train_dataset, 'train')
         self.build_dataset(eval_dataset, 'eval')
+        self.build_grad_acc(grad_acc)
         logger.info('Using device {0} to train.'.format(str(self.device)))
         self.run.train(self)
 
@@ -123,8 +125,10 @@ class Proxy(Context):
                     handler.Forward(),
                     # compute loss
                     handler.Loss(),
-                    # backward
-                    handler.Backward(),
+                    # backward and optimizer step
+                    handler.Optimizer([
+                        handler.Backward()
+                    ]),
                     # compute metrics
                     handler.Metrics(),
                     # compute average metrics
@@ -272,3 +276,8 @@ class Proxy(Context):
                 self.run.eval_provider = dataset
             else:
                 logger.warn('build_dataset mode not supported.')
+
+    @InvocationDebug('Proxy.build_grad_acc')
+    def build_grad_acc(self, grad_acc: int):
+        if grad_acc is not None:
+            self.run.grad_acc = grad_acc

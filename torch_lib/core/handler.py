@@ -157,14 +157,26 @@ class BackwardHandler(Handler):
     @InvocationDebug('BackwardHandler')
     def handle(self, ctx: Context):
         # context check
-        if ctx.ctx_check([
-            'step.loss',
-            'run.optimizer'
-        ]) is True:
+        if ctx.ctx_check(['step.loss']) is True:
+            last = ctx.step.total % ctx.run.grad_acc
+            grad_acc = ctx.run.grad_acc if (ctx.step.total - ctx.step.current - 1) >= last else last
             # backward
-            ctx.run.optimizer.zero_grad()
-            ctx.step.loss.backward()
+            (ctx.step.loss / grad_acc).backward()
+
+
+class OptimizerHandler(HandlerContainer):
+
+    def __init__(self, handlers: C_SEQ = None):
+        super().__init__(handlers)
+    
+    @InvocationDebug('OptimizerHandler')
+    def handle(self, ctx: Context):
+        # backward handler
+        super().handle(ctx)
+        if ctx.ctx_check(['run.optimizer']) is True and \
+            ((ctx.step.current + 1) % ctx.run.grad_acc == 0 or ctx.step.current + 1 == ctx.step.total):
             ctx.run.optimizer.step()
+            ctx.run.optimizer.zero_grad()
 
 
 class MetricsHandler(Handler):
