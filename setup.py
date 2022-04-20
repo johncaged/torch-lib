@@ -1,11 +1,11 @@
 from setuptools import setup, find_packages
+from torch_lib import __version__
 
-VERSION = '0.3.4'
 README = 'README.md'
 
 setup(
     name='torch_lib',
-    version=VERSION,
+    version=__version__,
     packages=find_packages(),
     include_package_data=False,
     entry_points={},
