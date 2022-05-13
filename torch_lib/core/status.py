@@ -144,6 +144,14 @@ class ValStatus(EvalStatus):
             _metrics['val_{0}'.format(key)] = value
         ctx.epoch.eval_metrics = _metrics
 
+    def get_avg_loss_and_metrics(self, ctx: Context):
+        data = []
+        if is_nothing(ctx.epoch.eval_loss) is False:
+            data.append('val_loss: {0:.5f}'.format(ctx.epoch.eval_loss))
+        for key, value in ctx.epoch.eval_metrics.items():
+            data.append('{0}: {1:.5f}'.format(key, value))
+        return data
+
     def __str__(self) -> str:
         return 'VAL'
 
