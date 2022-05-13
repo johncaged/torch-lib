@@ -111,8 +111,8 @@ class Proxy(Context):
             handler.EpochIteration([
                 # epoch begin callback
                 handler.EpochBegin(),
-                # set mode to 'train'
-                handler.Mode('train'),
+                # set status to 'train'
+                handler.Status('train'),
                 # get dataset
                 handler.Dataset(),
                 # clear average metrics
@@ -140,8 +140,8 @@ class Proxy(Context):
                 ]),
                 # apply learning rate decay
                 handler.LRDecay(),
-                # set mode to 'eval'
-                handler.Mode('eval'),
+                # set status to 'val'
+                handler.Status('val'),
                 # get dataset
                 handler.Dataset(),
                 # clear average metrics
@@ -175,8 +175,8 @@ class Proxy(Context):
         self.run.predict = handler.Container([
             # begin callback
             handler.Begin(),
-            # set mode to 'eval'
-            handler.Mode('eval'),
+            # set status to 'predict'
+            handler.Status('predict'),
             # get dataset
             handler.Dataset(),
             # dataset iteration
@@ -203,8 +203,8 @@ class Proxy(Context):
         self.run.eval = handler.Container([
             # begin callback
             handler.Begin(),
-            # set mode to 'eval'
-            handler.Mode('eval'),
+            # set status to 'eval'
+            handler.Status('eval'),
             # get dataset
             handler.Dataset(),
             # dataset iteration

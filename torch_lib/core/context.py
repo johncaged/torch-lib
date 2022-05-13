@@ -31,6 +31,9 @@ class Context(Base):
         self.device: Union[str, device] = NOTHING
         # model
         self.model: Module = NOTHING
+        # proxy status(train, eval, etc.)
+        from .status import Status
+        self.status: Status = NOTHING
         # running mode(train, eval, etc.)
         self.mode: str = NOTHING
         # the current dataset for running
@@ -201,7 +204,7 @@ class HandlerContext(TempContext):
         self.Average = handler.AverageHandler
         self.Display = handler.DisplayHandler
         self.Dataset = handler.DatasetHandler
-        self.Mode = handler.ModeHandler
+        self.Status = handler.StatusHandler
         self.LRDecay = handler.LRDecayHandler
         self.Begin = handler.BeginHandler
         self.End = handler.EndHandler

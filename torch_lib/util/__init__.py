@@ -307,7 +307,7 @@ class Count(SingleConst):
 class BaseList(list):
 
     def __init__(self, list_like: Iterable=None):
-        if list_like is None:
+        if list_like is None or is_nothing(list_like):
             super().__init__()
         else:
             super().__init__(list_like if isinstance(list_like, Iterable) else [list_like])

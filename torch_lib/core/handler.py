@@ -207,20 +207,7 @@ class AverageHandler(Handler):
     
     @InvocationDebug('AverageHandler')
     def handle(self, ctx: Context):
-        if is_nothing(ctx.inner[self.INNER_KEY]):
-            ctx.inner[self.INNER_KEY] = {
-                'train': {
-                    'count': 0,
-                    'loss': 0,
-                    'metrics': {}
-                },
-                'eval': {
-                    'count': 0,
-                    'loss': 0,
-                    'metrics': {}
-                }
-            }
-
+        ctx.status.init_avg_inner_ctx(ctx, self.INNER_KEY)
         if self.type == 'avg':
             self.average(ctx)
         elif self.type == 'clear':
@@ -228,32 +215,16 @@ class AverageHandler(Handler):
 
     def average(self, ctx: Context):
         # get inner context variables
-        summary = ctx.inner[self.INNER_KEY].get(ctx.mode, NOTHING)
+        summary = ctx.status.get_avg_inner_ctx(ctx, self.INNER_KEY)
         summary['count'] += 1
         # get average loss and metrics
         avg_loss = self._compute_avg_loss(summary, ctx.step.loss)
         avg_metrics = self._compute_avg_metrics(summary, ctx.step.metrics)
-        if ctx.mode == 'train':
-            ctx.epoch.train_loss = avg_loss
-            ctx.epoch.train_metrics = avg_metrics
-        elif ctx.mode == 'eval':
-            ctx.epoch.eval_loss = avg_loss
-            ctx.epoch.eval_metrics = avg_metrics
+        ctx.status.set_avg_loss_and_metrics(ctx, avg_loss, avg_metrics)
 
     def clear(self, ctx: Context):
-        # reset inner context variables
-        ctx.inner[self.INNER_KEY][ctx.mode] = {
-            'count': 0,
-            'loss': 0,
-            'metrics': {}
-        }
-        # reset epoch metrics and loss
-        if ctx.mode == 'train':
-            ctx.epoch.train_metrics = NOTHING
-            ctx.epoch.train_loss = NOTHING
-        elif ctx.mode == 'eval':
-            ctx.epoch.eval_metrics = NOTHING
-            ctx.epoch.eval_loss = NOTHING
+        # reset avg info
+        ctx.status.clear_avg_info(ctx, self.INNER_KEY)
 
     @staticmethod
     def _compute_avg_loss(summary, loss):
@@ -289,22 +260,11 @@ class DisplayHandler(Handler):
         current = ctx.step.current
         total = ctx.step.total
 
-        data = []
-        if ctx.mode == 'train':
-            if is_nothing(ctx.epoch.train_loss) is False:
-                data.append('loss: {0:.5f}'.format(ctx.epoch.train_loss))
-            for key, value in ctx.epoch.train_metrics.items():
-                data.append('{0}: {1:.5f}'.format(key, value))
-        elif ctx.mode == 'eval':
-            if is_nothing(ctx.epoch.eval_loss) is False:
-                data.append('loss: {0:.5f}'.format(ctx.epoch.eval_loss))
-            for key, value in ctx.epoch.eval_metrics.items():
-                data.append('{0}: {1:.5f}'.format(key, value))
-        data = ' '.join(data)
+        data = ' '.join(ctx.status.get_avg_loss_and_metrics(ctx))
 
         with Cursor.cursor_invisible():
             Cursor.refresh_print(
-                ctx.mode.upper(),
+                str(ctx.status),
                 # progress bar
                 progress_format(ctx.step.progress, newline=False),
                 # eta with color blue
@@ -328,25 +288,21 @@ class DatasetHandler(Handler):
     @InvocationDebug('DatasetHandler')
     def handle(self, ctx: Context):
         # context check
-        ctx.ctx_check('mode', silent=False)
-        # get dataset through mode
-        if ctx.mode == 'train':
-            ctx.ctx_check('run.train_provider', silent=False)
-            ctx.dataset = ctx.run.train_provider(ctx)
-        elif ctx.mode == 'eval':
-            ctx.ctx_check('run.eval_provider', silent=False)
-            ctx.dataset = ctx.run.eval_provider(ctx)
+        ctx.ctx_check('status', silent=False)
+        # get dataset through status
+        ctx.status.get_dataset(ctx)
 
 
-class ModeHandler(Handler):
+class StatusHandler(Handler):
 
-    def __init__(self, mode: str = 'train'):
+    def __init__(self, status: str = 'train'):
         super().__init__()
-        # only two modes are supported
-        mode_supported = ['train', 'eval']
-        if mode not in mode_supported:
-            logger.warn('An unsupported mode is set, this may cause some problems.')
-        self.mode = mode
+        # get status supported
+        from .status import proxy_status
+        mode_supported = list(proxy_status.modules.keys())
+        if status not in mode_supported:
+            logger.warn('An unsupported status is set, this may cause some problems.')
+        self.status = status
     
     @InvocationDebug('ModeHandler')
     def handle(self, ctx: Context):
@@ -354,10 +310,11 @@ class ModeHandler(Handler):
         ctx.ctx_check([
             'model'
         ], silent=False)
-        # set mode to the context
-        ctx.mode = self.mode
-        # change pytorch model mode to self.mode
-        getattr(ctx.model, self.mode, NOTHING)()
+        # set status to the context
+        from .status import proxy_status
+        ctx.status = proxy_status.build(self.status)
+        # change pytorch model mode
+        ctx.status.set_model_mode(ctx)
 
 
 class LRDecayHandler(Handler):
