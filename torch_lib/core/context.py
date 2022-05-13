@@ -34,8 +34,6 @@ class Context(Base):
         # proxy status(train, eval, etc.)
         from .status import Status
         self.status: Status = NOTHING
-        # running mode(train, eval, etc.)
-        self.mode: str = NOTHING
         # the current dataset for running
         self.dataset: DataLoader = NOTHING
         # run context

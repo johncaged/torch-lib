@@ -15,8 +15,8 @@ def TorchGrad(func):
     """
     @wraps(func)
     def grad_switch(self, ctx: Context):
-        # only when context mode is 'train' is the grad enabled
-        with set_grad_enabled(ctx.mode == 'train'):
+        # only when context status is in ['TRAIN'] is the grad enabled
+        with set_grad_enabled(str(ctx.status) in ['TRAIN']):
             func(self, ctx)
     return grad_switch
 
