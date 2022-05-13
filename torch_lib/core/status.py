@@ -137,6 +137,13 @@ class ValStatus(EvalStatus):
     def __init__(self) -> None:
         super().__init__()
 
+    def set_avg_loss_and_metrics(self, ctx: Context, loss, metrics):
+        ctx.epoch.eval_loss = loss
+        _metrics = {}
+        for key, value in metrics.items():
+            _metrics['val_{0}'.format(key)] = value
+        ctx.epoch.eval_metrics = _metrics
+
     def __str__(self) -> str:
         return 'VAL'
 
