@@ -156,7 +156,7 @@ class Proxy(Context):
                     handler.Metrics(),
                     # compute average metrics
                     handler.Average('avg'),
-                    # display in console or in log files; TODO: should eval output by step?
+                    # display in console or in log files
                     handler.Display()
                 ]),
                 # epoch end callback
