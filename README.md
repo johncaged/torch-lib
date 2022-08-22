@@ -178,9 +178,9 @@ execute loveyou()
         return grad_switch
 ```
 ##### 5. 对于矩阵求导，现在的模型是这样的：
-![pic1]()
+![pic1](https://thumbnail0.baidupcs.com/thumbnail/9520b0c1epec22c814d7dcd42b12f10e?fid=2939904872-250528-629394732297922&time=1661173200&rt=sh&sign=FDTAER-DCb740ccc5511e5e8fedcff06b081203-PeRpTj0GZHc4%2Bo%2FRaRdbg9JLyjo%3D&expires=8h&chkv=0&chkbd=0&chkpc=&dp-logid=8883216842698396187&dp-callid=0&file_type=0&size=c710_u400&quality=100&vuk=-&ft=video)
 则计算结果如下：
-![pic2]()
+![pic2](https://thumbnail0.baidupcs.com/thumbnail/d243098d9r012b0717a6878594107fe2?fid=2939904872-250528-985143410624318&time=1661173200&rt=sh&sign=FDTAER-DCb740ccc5511e5e8fedcff06b081203-atLlKZmc6hy5seOxQyCgzsen72A%3D&expires=8h&chkv=0&chkbd=0&chkpc=&dp-logid=8883234007716238596&dp-callid=0&file_type=0&size=c710_u400&quality=100&vuk=-&ft=video)
 
 ##### 6. Handler类：
 是所有处理器的基类，定义了一个__init__函数，一个抽象处理函数handle，以及一个__call__函数。其中__call__函数的作用是使类实例对象可以像调用普通函数那样，以“对象名()”的形式使用。例如：
