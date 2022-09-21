@@ -8,6 +8,39 @@ import threading
 from functools import wraps
 from time import time
 import traceback
+import inspect
+
+
+def SmartWrapper(cls):
+    """
+    Smart wrapper that wraps functions and classes when using decorator.
+    It is smarter than functools.wraps, for it can recognize whether the decorated item is a class or a function and then applies
+    class wrapper or function wrapper respectively.
+    When it is used to a function, the result is the same as functools.wraps,
+    while when it is used to a class, you can get the original class by accessing the '_class' attribute,
+    so you can use this feature to do other useful things, such as 'isinstance', etc.
+    """
+    def decorator(func):
+        if inspect.isclass(cls):
+            class Wrapper:
+                def __init__(self, _class) -> None:
+                    self._class = _class
+                
+                def __call__(self, *args, **kwargs) -> None:
+                    return func(*args, **kwargs)
+                
+                def __repr__(self):
+                    return "Smart wrapper object: {}. (You can get the original decorated class by accessing the attribute '_class')".format(super().__repr__())
+                
+                def __str__(self):
+                    return "Smart wrapper object: {}. (You can get the original decorated class by accessing the attribute '_class')".format(super().__repr__())
+            return wraps(cls)(Wrapper(cls))
+        elif inspect.isfunction(cls) or inspect.ismethod(cls):
+            @wraps(cls)
+            def wrapper(*args, **kwargs):
+                return func(*args, **kwargs)
+            return wrapper
+    return decorator
 
 
 def Singleton(cls):
@@ -18,7 +51,7 @@ def Singleton(cls):
     _lock = threading.Lock()
     _instance = {}
     
-    @wraps(cls)
+    @SmartWrapper(cls)
     def wrapper(*args, **kwargs):
         if cls not in _instance:
             with _lock:

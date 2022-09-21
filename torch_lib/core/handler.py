@@ -1,11 +1,10 @@
 from abc import abstractmethod
 from typing import Dict, Sequence, Union
-from ..util import BaseList, IterTool, NOTHING, is_nothing, safe_divide, type_cast, InvocationDebug
+from ..util import BaseList, IterTool, NOTHING, is_nothing, safe_divide, type_cast, InvocationDebug, SmartWrapper
 import torch_lib.util.terminal as Cursor
 from ..util.formatter import progress_format, eta_format
 from .context import Context
 from ..log import logger
-from functools import wraps
 from torch import set_grad_enabled
 
 
@@ -13,7 +12,7 @@ def TorchGrad(func):
     """
     Set grad enabled or not according to the context mode.
     """
-    @wraps(func)
+    @SmartWrapper(func)
     def grad_switch(self, ctx: Context):
         # only when context status is in ['TRAIN'] is the grad enabled
         with set_grad_enabled(str(ctx.status) in ['TRAIN']):
