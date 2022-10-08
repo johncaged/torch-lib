@@ -207,6 +207,8 @@ class Proxy(Context):
             handler.Status('eval'),
             # get dataset
             handler.Dataset(),
+            # clear average metrics
+            handler.Average('clear'),
             # dataset iteration
             handler.Iteration([
                 # step begin callback
@@ -217,6 +219,8 @@ class Proxy(Context):
                 handler.Loss(),
                 # compute metrics
                 handler.Metrics(),
+                # compute average metrics
+                handler.Average('avg'),
                 # display
                 handler.Display(),
                 # step end callback

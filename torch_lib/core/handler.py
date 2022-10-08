@@ -215,7 +215,6 @@ class AverageHandler(Handler):
     def average(self, ctx: Context):
         # get inner context variables
         summary = ctx.status.get_avg_inner_ctx(ctx, self.INNER_KEY)
-        summary['count'] += 1
         # get average loss and metrics
         avg_loss = self._compute_avg_loss(summary, ctx.step.loss)
         avg_metrics = self._compute_avg_metrics(summary, ctx.step.metrics)
@@ -229,7 +228,9 @@ class AverageHandler(Handler):
     def _compute_avg_loss(summary, loss):
         if 'loss' in summary and 'count' in summary and is_nothing(loss) is False:
             summary['loss'] += float(loss)
-            return safe_divide(summary['loss'], summary['count'])
+            summary['count'].setdefault('loss', 0)
+            summary['count']['loss'] += 1
+            return safe_divide(summary['loss'], summary['count']['loss'])
         else:
             return NOTHING
 
@@ -239,11 +240,12 @@ class AverageHandler(Handler):
             temp = {}
             _metrics = summary['metrics']
             for key, value in metrics.items():
-                if key in _metrics:
-                    _metrics[key] += value
-                else:
-                    _metrics[key] = value
-                temp[key] = safe_divide(_metrics[key], summary['count'])
+                _metrics.setdefault(key, 0)
+                _metrics[key] += value
+                summary['count'].setdefault(key, 0)
+                summary['count'][key] += 1
+            for key, value in _metrics.items():
+                temp[key] = safe_divide(value, summary['count'].setdefault(key, 0))
             return temp
         else:
             return NOTHING

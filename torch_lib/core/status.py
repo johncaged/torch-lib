@@ -39,7 +39,7 @@ class Status:
     @staticmethod
     def _get_avg_inner_init_item():
         return {
-            'count': 0,
+            'count': {},
             'loss': 0,
             'metrics': {}
         }

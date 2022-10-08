@@ -3,15 +3,15 @@ import sys
 
 ESC = '\x1b'  # the ANSI escape code.
 CSI = ESC + '['  # control Sequence Introducer.
-CURSOR_UP = CSI + '%dA'
-CURSOR_DOWN = CSI + '%dB'
-CURSOR_LEFT = CSI + '%dC'
-CURSOR_RIGHT = CSI + '%dD'
+CURSOR_UP = CSI + '{}A'
+CURSOR_DOWN = CSI + '{}B'
+CURSOR_LEFT = CSI + '{}C'
+CURSOR_RIGHT = CSI + '{}D'
 CURSOR_START = '\r'  # move the cursor to the start of the row.
 CURSOR_INVISIBLE = CSI + '?25l'
 CURSOR_VISIBLE = CSI + '?25h'
-CLEAR_SCREEN = CSI + '%dJ'
-CLEAR_LINE = CSI + '%dK'
+CLEAR_SCREEN = CSI + '{}J'
+CLEAR_LINE = CSI + '{}K'
 
 CURSOR_VISIBILITY_ENABLED: bool = True
 
@@ -22,19 +22,19 @@ def set_cursor_visibility_enabled(enabled: bool):
 
 
 def up(row: int = 1):
-    return CURSOR_UP % row
+    return CURSOR_UP.format(row)
 
 
 def down(row: int = 1):
-    return CURSOR_DOWN % row
+    return CURSOR_DOWN.format(row)
 
 
 def left(column: int = 1):
-    return CURSOR_LEFT % column
+    return CURSOR_LEFT.format(column)
 
 
 def right(column: int = 1):
-    return CURSOR_RIGHT % column
+    return CURSOR_RIGHT.format(column)
 
 
 def start():
@@ -47,7 +47,7 @@ def clear_line(mode: str = 'all'):
         'before': 1,
         'all': 2
     }
-    return CLEAR_LINE % clear_mode.get(mode, 2)
+    return CLEAR_LINE.format(clear_mode.get(mode, 2))
 
 
 def single_color(color: str):
