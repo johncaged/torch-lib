@@ -1,10 +1,10 @@
 from abc import abstractmethod
 from typing import Dict, Sequence, Union
-from ..util import BaseList, IterTool, NOTHING, is_nothing, safe_divide, type_cast, InvocationDebug, SmartWrapper
-import torch_lib.util.terminal as Cursor
-from ..util.formatter import progress_format, eta_format
-from .context import Context
-from ..log import logger
+from torch_lib.util import BaseList, IterTool, NOTHING, is_nothing, safe_divide, type_cast, \
+    InvocationDebug, SmartWrapper, terminal as Cursor
+from torch_lib.util.formatter import progress_format, eta_format
+from torch_lib.core.context import Context
+from torch_lib.log import logger
 from torch import set_grad_enabled
 
 
@@ -58,7 +58,7 @@ C_SEQ = Union[Handler, Sequence[Handler]]
 class HandlerContainer(Handler, BaseList):
 
     def __init__(self, handlers: C_SEQ = None):
-        super().__init__()
+        Handler.__init__(self)
         BaseList.__init__(self, handlers)
     
     def handle(self, ctx: Context):
@@ -191,6 +191,16 @@ class MetricsHandler(Handler):
             ctx.step.metrics = ctx.run.metrics(ctx)
 
 
+class MetricsGatherHandler(Handler):
+
+    def __init__(self):
+        super().__init__()
+    
+    @InvocationDebug('MetricsGatherHandler')
+    def handle(self, ctx: Context):
+        return super().handle(ctx)
+
+
 # TODO: implementation to be optimized
 class AverageHandler(Handler):
 
@@ -299,7 +309,7 @@ class StatusHandler(Handler):
     def __init__(self, status: str = 'train'):
         super().__init__()
         # get status supported
-        from .status import proxy_status
+        from torch_lib.core.status import proxy_status
         mode_supported = list(proxy_status.modules.keys())
         if status not in mode_supported:
             logger.warn('An unsupported status is set, this may cause some problems.')
@@ -312,7 +322,7 @@ class StatusHandler(Handler):
             'model'
         ], silent=False)
         # set status to the context
-        from .status import proxy_status
+        from torch_lib.core.status import proxy_status
         ctx.status = proxy_status.build(self.status)
         # change pytorch model mode
         ctx.status.set_model_mode(ctx)

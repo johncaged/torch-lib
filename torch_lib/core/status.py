@@ -1,9 +1,9 @@
 """
 Status Pattern for model status management.
 """
-from ..util import NOTHING, is_nothing
-from ..module import Registry
-from .context import Context
+from torch_lib.util import NOTHING, is_nothing
+from torch_lib.module import Registry
+from torch_lib.core.context import Context
 
 proxy_status = Registry('proxy_status')
 

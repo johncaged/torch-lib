@@ -1,8 +1,8 @@
 from abc import abstractmethod
 from typing import Union, Dict, Sequence
-from ..util.type import NUMBER, NUMBER_T
-from ..util import Count, Nothing, is_nothing, dict_merge, NOTHING, BaseList
-from ..core.context import Context
+from torch_lib.util.type import NUMBER, NUMBER_T
+from torch_lib.util import Count, Nothing, is_nothing, dict_merge, NOTHING, BaseList
+from torch_lib.core.context import Context
 
 
 class Metric():
@@ -34,7 +34,7 @@ M_SEQ = Union[Metric, Sequence[Metric]]
 class MetricContainer(Metric, BaseList):
 
     def __init__(self, metrics: M_SEQ = None):
-        super().__init__()
+        Metric.__init__(self)
         BaseList.__init__(self, metrics)
 
     def get(self, ctx: Context) -> Union[Dict, NUMBER]:

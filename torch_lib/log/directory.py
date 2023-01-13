@@ -1,4 +1,4 @@
-from ..util import NOTHING
+from torch_lib.util import NOTHING
 import os
 
 BASE_PATH = NOTHING
@@ -31,7 +31,7 @@ def set_namespace(namespace: str):
     if os.path.exists(namespace_path) is False:
         safe_makedirs(namespace_path)
     else:
-        from . import logger
+        from torch_lib.log import logger
         logger.warn('The namespace folder already exists. Please check the namespace to avoid overwriting previous log files.')
 
 
