@@ -4,7 +4,7 @@
 ![PyPI](https://img.shields.io/pypi/v/torch_lib?color=blue)
 ![Stars](https://img.shields.io/github/stars/johncaged/torch-lib?color=ff69b4)
 
-| * WARNING: this repository is deprecated, see https://github.com/johncaged/TorchSlime for latest updates. *
+> **WARNING: this repository is deprecated, see https://github.com/johncaged/TorchSlime for latest updates.**
 
 ## 介绍
 
