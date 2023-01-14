@@ -4,6 +4,8 @@
 ![PyPI](https://img.shields.io/pypi/v/torch_lib?color=blue)
 ![Stars](https://img.shields.io/github/stars/johncaged/torch-lib?color=ff69b4)
 
+| * WARNING: this repository is deprecated, see https://github.com/johncaged/TorchSlime for latest updates. *
+
 ## 介绍
 
 torch_lib 是一个基于深度学习框架 PyTorch 的开源训练库，对训练 pipeline 提供了一系列标准化的流程和预定义的接口，用于简化训练代码的编写，提高开发效率。
