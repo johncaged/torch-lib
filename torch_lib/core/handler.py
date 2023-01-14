@@ -4,7 +4,9 @@ from torch_lib.util import BaseList, IterTool, NOTHING, is_nothing, safe_divide,
     InvocationDebug, SmartWrapper, terminal as Cursor
 from torch_lib.util.formatter import progress_format, eta_format
 from torch_lib.core.context import Context
+from torch_lib.core import DistributedProxy
 from torch_lib.log import logger
+from torch_lib.util.type import INT_SEQ_N
 from torch import set_grad_enabled
 
 
@@ -51,6 +53,33 @@ class EmptyHandler(Handler):
         pass
 
 
+class DistributedHandler(Handler):
+
+    def __init__(self, exec_ranks: INT_SEQ_N = None):
+        super().__init__()
+        self.exec_ranks = BaseList.create(exec_ranks)
+
+    def __call__(self, ctx: DistributedProxy):
+        rank = ctx.get_rank()
+        if self.exec_ranks is not None and \
+            (is_nothing(self.exec_ranks) or rank in self.exec_ranks):
+            super().__call__(ctx)
+
+
+class DistributedHandlerWrapper(DistributedHandler):
+
+    def __init__(
+        self,
+        wrapped_handler: Handler,
+        exec_ranks: INT_SEQ_N = None
+    ):
+        super().__init__(exec_ranks)
+        self._wrapped_handler = wrapped_handler
+    
+    def handle(self, ctx: Context):
+        self._wrapped_handler(ctx)
+
+
 # handler or sequence of handlers
 C_SEQ = Union[Handler, Sequence[Handler]]
 
@@ -64,6 +93,21 @@ class HandlerContainer(Handler, BaseList):
     def handle(self, ctx: Context):
         for handler in self:
             handler(ctx)
+
+
+class DistributedHandlerContainer(HandlerContainer):
+
+    def __init__(self, handlers: C_SEQ = None, default_exec_ranks: INT_SEQ_N = None):
+        super().__init__(handlers)
+        # the distributed handler container is always executed.
+        self.exec_ranks = NOTHING
+        # exec ranks that are set to its sub-handlers
+        self.default_exec_ranks = BaseList.create(default_exec_ranks)
+
+
+class DistributedHandlerContainerWrapper(DistributedHandlerContainer):
+
+    pass
 
 
 class EpochIterationHandler(HandlerContainer):
